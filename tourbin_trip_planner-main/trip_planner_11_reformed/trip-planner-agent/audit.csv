@@ -1,0 +1,556 @@
+key,total,kept,dropped,kept_pct,example_value
+@id,64631,0,64631,0.0,relation/3099
+@geometry,37096,0,37096,0.0,center
+leaf_type,4651,0,4651,0.0,mixed
+source,3119,0,3119,0.0,Dshpak_landsat_lakes
+name:en,3117,0,3117,0.0,Shatt al-Arab
+leaf_cycle,1798,0,1798,0.0,deciduous
+type,1440,0,1440,0.0,multipolygon
+denotation,1104,7,1097,0.6,Sea-buckthorn
+disused:natural,551,0,551,0.0,water
+height,452,1,451,0.2,16
+landuse,317,0,317,0.0,reservoir
+drinking_water,285,0,285,0.0,no
+waterway,256,0,256,0.0,dam
+name:ar,255,0,255,0.0,شط العرب
+name:de,218,0,218,0.0,Schatt al-Arab
+source:ele,217,0,217,0.0,Iran NGO Map
+name,9532,9319,213,97.8,رود کارون
+addr:city,207,0,207,0.0,اندیمشک
+addr:street,204,0,204,0.0,لطفعلی خان
+protect_class,178,0,178,0.0,5
+protection_title,165,1,164,0.6,Protected Area
+area,161,0,161,0.0,yes
+ref:IUCN,138,0,138,0.0,V
+name:ru,119,0,119,0.0,Шатт-эль-Араб
+aquaculture,111,0,111,0.0,fish
+name:fr,109,0,109,0.0,Chatt-el-Arab
+ownership,107,0,107,0.0,national
+amenity,96,0,96,0.0,place_of_worship
+surface,97,2,95,2.1,sand
+source:name,95,0,95,0.0,GNS
+barrier,93,0,93,0.0,city_wall
+source:prominence,80,0,80,0.0,5610-943 (col between Pona and Chumateleti)
+is_in:country,74,0,74,0.0,Iran
+alt_name:en,73,0,73,0.0,River of the Arabs
+place,71,0,71,0.0,sea
+material,68,1,67,1.5,stone
+geological,67,0,67,0.0,salt_dome
+name:az,65,0,65,0.0,Şəttül-Ərəb
+fixme,61,1,60,1.6,refine
+name:it,60,0,60,0.0,Shatt al-'Arab
+int_name,58,0,58,0.0,Shatt Al-Arab
+name:tr,55,0,55,0.0,Şattülarap
+gns:dsg,52,0,52,0.0,SEA
+man_made,51,0,51,0.0,reservoir_covered
+genus,46,1,45,2.2,Quercus
+name:ja,43,0,43,0.0,シャットゥルアラブ川
+description:en,39,0,39,0.0,"Darbandikhan Lake, 65 km southeast of Sulaymaniyah in northern Iraq, is a large "
+name:es,38,0,38,0.0,Chat el Arab
+name:zh,38,0,38,0.0,阿拉伯河
+name:ml,36,0,36,0.0,ശത്ത്-അൽ അറബ്
+highway,36,0,36,0.0,pedestrian
+lit,36,0,36,0.0,yes
+reservoir_type,35,0,35,0.0,water_storage
+crop,34,0,34,0.0,barberry
+visit,34,0,34,0.0,permissive
+wall,33,0,33,0.0,brick
+alt_name,333,301,32,90.4,دجلة العوراء
+note,59,27,32,45.8,Urmia Lake before shrinking
+ref:ichhto,31,0,31,0.0,918
+ruins,28,0,28,0.0,castle
+name:ckb,27,0,27,0.0,شەتەلعەرەب
+historic:civilization,27,0,27,0.0,sassanid
+name:ku,26,0,26,0.0,Şetelereb
+seasonal,26,0,26,0.0,yes
+bridge,26,0,26,0.0,yes
+description,252,227,25,90.1,نهر عراقي يتكون من التقاء نهري دجلة والفرات ويصب في الخليج العربي
+wheelchair,23,0,23,0.0,yes
+ref:WDPA,22,0,22,0.0,705
+name:hy,20,0,20,0.0,Շատ ալ-Արաբ
+addr:housenumber,20,0,20,0.0,69-64
+tomb,19,0,19,0.0,rock-cut
+ele:source,19,0,19,0.0,gitashenasi
+name:azb,18,0,18,0.0,شط العرب
+name:cs,18,0,18,0.0,Šatt al-Arab
+name:pt,18,0,18,0.0,Xatalárabe
+name:ur,18,0,18,0.0,شط العرب
+ref:whc,18,0,18,0.0,1397
+is_in:state,18,0,18,0.0,Bushehr
+species,18,0,18,0.0,Quercus Ilex
+diameter,18,0,18,0.0,6 m
+name:uk,17,0,17,0.0,Шатт-ель-Араб
+name:hi,17,0,17,0.0,कैस्पियन सागर
+name:he,16,0,16,0.0,שט אל-ערב
+name:hr,16,0,16,0.0,Šat al-Arab
+whc:criteria,16,0,16,0.0,ii
+name:sk,15,0,15,0.0,Šatt al-Arab
+boat,15,0,15,0.0,no
+archaeological_site,15,0,15,0.0,structure
+name:tk,14,0,14,0.0,Hazar deňzi
+building:levels,14,0,14,0.0,1.5
+name:nl,13,0,13,0.0,Sjatt al-Arab
+name:be,12,0,12,0.0,Арвандруд
+sport,12,0,12,0.0,swimming
+content,12,0,12,0.0,sewage
+name:sv,11,0,11,0.0,Shatt al-Arab
+whc:inscription_date,11,0,11,0.0,2012
+volcano:type,11,0,11,0.0,stratovolcano
+shop,11,0,11,0.0,mall
+water_source,11,0,11,0.0,rain fed
+name:ca,10,0,10,0.0,Xatt al-Arab
+name:ko,10,0,10,0.0,샤트알아랍강
+name:sr,10,0,10,0.0,Шат ел Араб
+building:material,10,0,10,0.0,brick
+addr:postcode,10,0,10,0.0,69561
+emergency,10,0,10,0.0,yes
+name:ar1,10,0,10,0.0,هور المریس
+taxon:family,10,0,10,0.0,Arecaceae
+name:bg,9,0,9,0.0,Шат ал-Араб
+name:hu,9,0,9,0.0,Shatt al-Arab
+name:pl,9,0,9,0.0,Szatt al-Arab
+name:el,9,0,9,0.0,Ἀράξης
+bicycle,9,0,9,0.0,designated
+covered,9,0,9,0.0,yes
+addr:country,9,0,9,0.0,IR
+name:fi,8,0,8,0.0,Shatt al-Arab
+name:ka,8,0,8,0.0,შატ-ელ-არაბი
+name:bal,8,0,8,0.0,گابریک ءُ جاسک سپارگ بوتءِ الاکہ
+url,8,0,8,0.0,https://www.360cities.net/image/sunset-talab-meighan-arak-iran;https://www.360ci
+glacier:type,8,0,8,0.0,mountain
+subject:wikipedia,8,0,8,0.0,fa:شاه نعمت‌الله ولی
+colour,8,0,8,0.0,brown
+disused,8,0,8,0.0,yes
+object:city,8,0,8,0.0,Abarkuh
+email,8,0,8,0.0,sarayekhankohne@gmail.com
+name:bn,7,0,7,0.0,শাতিল আরব
+name:da,7,0,7,0.0,Shatt al-Arab
+name:eo,7,0,7,0.0,Ŝatt al-Arab
+name:eu,7,0,7,0.0,Xatt al-Arab
+name:lt,7,0,7,0.0,Šat al Arabas
+name:mk,7,0,7,0.0,Шат ел-Араб
+name:sl,7,0,7,0.0,Šat el Arab
+name:vi,7,0,7,0.0,Shatt al-Arab
+alt_name:ar,7,0,7,0.0,بحيرة سد دربندیخان
+name:kk,7,0,7,0.0,Арас
+name:mzn,7,0,7,0.0,مازرون دریا
+source:position,7,0,7,0.0,MapBox
+ship,7,0,7,0.0,no
+width,7,0,7,0.0,21 nautical miles
+check_date,7,0,7,0.0,2024-03-16
+created_by,7,0,7,0.0,JOSM
+volcano:status,7,0,7,0.0,dormant
+population,7,0,7,0.0,18000
+direction,7,0,7,0.0,N
+tunnel,7,0,7,0.0,culvert
+grassland,7,0,7,0.0,prairie
+circumference,7,0,7,0.0,18
+is_in,130,124,6,95.4,خوزستان
+alt_name:ru,6,0,6,0.0,Арабский берег
+name:ba,6,0,6,0.0,Шәтт әл-Ғәрәп
+name:cv,6,0,6,0.0,Шатт-эль-Араб
+name:id,6,0,6,0.0,Sungai Shatt al-Arab
+name:sh,6,0,6,0.0,Šat al-Arab
+name:glk,6,0,6,0.0,کاسپی دریا
+source:tracer,6,0,6,0.0,scanaerial
+source:zoomlevel,6,0,6,0.0,14
+GNS:id,6,0,6,0.0,6209541
+basin,6,0,6,0.0,water
+depth,6,0,6,0.0,4
+admin_level,6,0,6,0.0,7
+owner,6,0,6,0.0,national
+building:condition,6,0,6,0.0,ruin
+species:wikidata,6,0,6,0.0,Q147513
+maxspeed,6,1,5,16.7,30
+name:cy,5,0,5,0.0,Shatt al-Arab
+name:et,5,0,5,0.0,Shaţţ al-‘Arab
+name:no,5,0,5,0.0,hatt al-Arab
+name:ro,5,0,5,0.0,Shatt al-Arab
+name:ky,5,0,5,0.0,Аракс
+name:os,5,0,5,0.0,Аракс
+name:tg,5,0,5,0.0,Арас
+name:mn,5,0,5,0.0,Каспийн тэнгис
+name:zh-Hans,5,0,5,0.0,里海
+name:zh-Hant,5,0,5,0.0,裏海
+canoe,5,0,5,0.0,yes
+heritage:website,5,0,5,0.0,http://whc.unesco.org/en/list/1372
+name:az-Arab,5,0,5,0.0,کیچیک زاب چایی
+motorboat,5,0,5,0.0,no
+is_in:country_code,5,0,5,0.0,ir
+operator:type,5,0,5,0.0,government
+foot,5,0,5,0.0,designated
+buried:wikidata,5,0,5,0.0,Q8423
+level,5,0,5,0.0,2
+subject:wikidata,5,0,5,0.0,Q913037
+building:colour,5,0,5,0.0,brown
+internet_access,5,0,5,0.0,wlan
+name:lv,4,0,4,0.0,Šatelaraba
+name:nn,4,0,4,0.0,Shatt al-Arab
+name:oc,4,0,4,0.0,Chatt el-Arab
+name:pnb,4,0,4,0.0,شط العرب
+name:ps,4,0,4,0.0,شات العرب
+name:th,4,0,4,0.0,ชัฏฏุลอะร็อบ
+name:uz,4,0,4,0.0,Shatt ul-Arab
+old_name:en,4,0,4,0.0,Shah Abbasi Caravanserai of Bisotun
+name:am,4,0,4,0.0,አራስ ወንዝ
+name:grc,4,0,4,0.0,Ἀράξης
+name:hsb,4,0,4,0.0,Aras
+name:tt,4,0,4,0.0,Аракс
+gns:uni,4,0,4,0.0,-2149697
+managed,4,0,4,0.0,no
+supervised,4,0,4,0.0,no
+oneway,4,0,4,0.0,yes
+ref,4,0,4,0.0,1077
+glacier:ele_bottom,4,0,4,0.0,3900
+glacier:ele_top,4,0,4,0.0,5070
+length,4,0,4,0.0,1700
+horse,4,0,4,0.0,no
+water_supply,4,0,4,0.0,running_water
+incline,4,0,4,0.0,up
+addr:province,4,0,4,0.0,خراسان رضوی
+industrial,4,0,4,0.0,settling_pond
+addr:village,4,0,4,0.0,افین
+spring:type,4,0,4,0.0,hot
+name:bh,3,0,3,0.0,शत अल अरब
+name:ceb,3,0,3,0.0,Shatt al Arab
+name:fy,3,0,3,0.0,Arabyske Rivier
+name:la,3,0,3,0.0,Šaṭṭ al-ʿArab
+name:ta,3,0,3,0.0,சாட் அல் அராப் ஆறு
+name:hyw,3,0,3,0.0,Արաքս
+alt_name:vi,3,0,3,0.0,Lý Hải
+name:arc,3,0,3,0.0,ܝܡܐ ܐܚܪܝܐ
+name:ia,3,0,3,0.0,Mar Caspie
+alt_name:de,3,0,3,0.0,Freitagsmoschee
+image_1,3,0,3,0.0,http://www.citypedia.ir/wp-content/uploads/2014/12/%D8%B9%DA%A9%D8%B3-%D9%87%D9%
+name:etymology:wikidata,3,0,3,0.0,Q5781655
+min_height,3,0,3,0.0,1.0
+alt_name:az,3,0,3,0.0,Urmiyə gölü;Urmiya gölü
+name:sdh,3,0,3,0.0,زێی بچووک
+water_characteristic,3,0,3,0.0,mineral
+air_conditioning,3,0,3,0.0,yes
+is_in:province,3,0,3,0.0,هرمزگان
+bridge:structure,3,0,3,0.0,arch
+historic:period,3,0,3,0.0,achaemenid
+name_1:ru,3,0,3,0.0,Восемь райских садов
+roof:shape,3,0,3,0.0,pyramidal
+city,3,0,3,0.0,kerman
+capacity,3,0,3,0.0,50
+step_count,3,0,3,0.0,4
+playground,3,0,3,0.0,roundabout
+playground:theme,3,0,3,0.0,playground
+trees,3,0,3,0.0,olive_trees
+abandoned,3,0,3,0.0,yes
+condition,3,0,3,0.0,damaged
+place_of_worship,3,0,3,0.0,church
+cuisine,3,0,3,0.0,regional;kebab
+spring,3,0,3,0.0,drinking_water
+mountain_pass,3,0,3,0.0,yes
+summit:cross,3,0,3,0.0,yes
+free_flying:paragliding,3,0,3,0.0,yes
+free_flying:site,3,0,3,0.0,landing
+designation,5,3,2,60.0,لاگن های تبخیری مواد شمیایی
+power,3,1,2,33.3,expert
+alt_name:fr,2,0,2,0.0,Chott-el-Arab
+alt_name:ku,2,0,2,0.0,Şet el-Ereb
+name:arz,2,0,2,0.0,شط العرب
+name:pa,2,0,2,0.0,ਸ਼ਤ ਅਲ-ਅਰਬ
+name:sw,2,0,2,0.0,Shatt al Arab
+source:name:oc,2,0,2,0.0,ieo-bdtopoc
+alt_name:eo,2,0,2,0.0,Kaspia Maro
+alt_name:io,2,0,2,0.0,Kaspia Maro
+name:br,2,0,2,0.0,Mor Kaspia
+name:io,2,0,2,0.0,Kaspia
+name:is,2,0,2,0.0,Kaspíahaf
+name:kmr,2,0,2,0.0,دەریایا قەزوینێ
+name:mr,2,0,2,0.0,कॅस्पियन समुद्र
+name:ms,2,0,2,0.0,Laut Kaspia
+name:ota,2,0,2,0.0,خزر دنیزی
+name:syc,2,0,2,0.0,ܝܡܐ ܕܐܝܒܪܝܐ
+sqkm,2,0,2,0.0,371000
+genus:wikidata,2,0,2,0.0,Q312094
+roof:material,2,0,2,0.0,brick
+whc:name,2,0,2,0.0,The Persian Garden
+whc:website,2,0,2,0.0,http://whc.unesco.org/en/list/1372
+alt_name:pt,2,0,2,0.0,Forte de Nossa Senhora da Conceição de Ormuz
+alt_name:ml,2,0,2,0.0,ചിത്ഗർ തടാകം
+garden:style,2,0,2,0.0,persian
+alt_name:cs,2,0,2,0.0,Dašte Lút
+alt_name:azb,2,0,2,0.0,اۇرمیه گؤلو
+alt_name:hr,2,0,2,0.0,Urmijsko jezero
+description:ru,2,0,2,0.0,Красный пляж на острове Хормоз — известный как «Остров Радуги» благодаря своим я
+alt_name:ckb,2,0,2,0.0,کەنداوی فارس
+alt_name:ur,2,0,2,0.0,خلیج عربی
+int_name:en,2,0,2,0.0,Gulf of Iran;Persian Gulf
+short_name:cs,2,0,2,0.0,Hormuz
+name:ks,2,0,2,0.0,داغ تندی
+region:type,2,0,2,0.0,mountain_area
+importance,2,0,2,0.0,international
+name:gl,2,0,2,0.0,Monte Damavand
+sidewalk,2,0,2,0.0,both
+website:tickets,2,0,2,0.0,http://www.wwl.ir/
+garden:type,2,0,2,0.0,botanical
+is_in:city,2,0,2,0.0,اردبیل
+note:en,2,0,2,0.0,very rough extrapolation
+usage,2,0,2,0.0,main
+segregated,2,0,2,0.0,no
+ref:sci,2,0,2,0.0,812022
+place_of_worship:type,2,0,2,0.0,dakhma
+name:fa-Latn,2,0,2,0.0,Mehrpadin
+roof:colour,2,0,2,0.0,cyan
+service_times,2,0,2,0.0,24/7
+addr:state,2,0,2,0.0,اصفهان
+golf,2,0,2,0.0,bunker
+motor_vehicle,2,0,2,0.0,no
+product,2,0,2,0.0,sewage
+memorial,2,0,2,0.0,tomb
+tower:type,2,0,2,0.0,minaret
+produce,2,0,2,0.0,fish
+fountain,2,0,2,0.0,water
+cave:size,2,0,2,0.0,medium
+geoglyph:language,2,0,2,0.0,persian
+bench,2,0,2,0.0,yes
+is_in:county,2,0,2,0.0,Golbahar
+drinking_water:legal,2,0,2,0.0,no
+taxon,2,0,2,0.0,Platanus
+wikipedia:en,2,0,2,0.0,Darreh Khazineh
+payment:cards,2,0,2,0.0,yes
+communication:frequency,2,0,2,0.0,460475
+free_flying:guest-guidelines,2,0,2,0.0,yes
+free_flying:rigid,2,0,2,0.0,yes
+free_flying:site_orientation,2,0,2,0.0,"SE,S,SW"
+free_flying:tandem,2,0,2,0.0,yes
+addr:place,2,0,2,0.0,لرد
+mobile,2,0,2,0.0,+98 939 888 82 01
+old_name,17,16,1,94.1,کاروانسرای شاه عباسی
+inscription,4,3,1,75.0,yes
+nat_name,3,2,1,66.7,سد بیدواز
+reg_name,3,2,1,66.7,تپه ممه
+name:bcl,1,0,1,0.0,Salog Shatt-al-Arab
+name:frr,1,0,1,0.0,Schatt al-Arab
+name:mg,1,0,1,0.0,Shatt al-Arab
+name:scn,1,0,1,0.0,Shatt al-Arab
+name:sd,1,0,1,0.0,شط العرب
+name:wuu,1,0,1,0.0,阿拉伯河
+name:xmf,1,0,1,0.0,შატ-ელ-არაბი
+name:zh_yue,1,0,1,0.0,阿剌伯河
+alt_name:glk,1,0,1,0.0,کاسپينˇ گر
+name:af,1,0,1,0.0,Kaspiese See
+name:av,1,0,1,0.0,Каспий ралъад
+name:avk,1,0,1,0.0,Kaspa bira
+name:az-cyr,1,0,1,0.0,Хәзәр дәнизи
+name:bar,1,0,1,0.0,Kaspischs Meer
+name:be-tarask,1,0,1,0.0,Касьпійскае мора
+name:ce,1,0,1,0.0,Каспий-хӀорд
+name:fo,1,0,1,0.0,Kaspiska havið
+name:fur,1,0,1,0.0,Mâr Caspi
+name:ga,1,0,1,0.0,Muir Chaisp
+name:gan,1,0,1,0.0,裡海
+name:hak,1,0,1,0.0,Lî-hói
+name:jbo,1,0,1,0.0,"kaspi,an. xamsi"
+name:kaa,1,0,1,0.0,Kaspiy teńizi
+name:kab,1,0,1,0.0,Ilel n Kaspi
+name:kbd,1,0,1,0.0,Хы Къарс
+name:kk-Arab,1,0,1,0.0,كاسپىيي تەڭىزى
+name:kn,1,0,1,0.0,ಕ್ಯಾಸ್ಪಿಯನ್ ಸಮುದ್ರ
+name:ku-Arab,1,0,1,0.0,دەریایا قەزوینێ
+name:lb,1,0,1,0.0,Kaspescht Mier
+name:lbe,1,0,1,0.0,Каспи хьхьири
+name:lez,1,0,1,0.0,Каспи гьуьл
+name:lfn,1,0,1,0.0,Mar Caspio
+name:lrc,1,0,1,0.0,دریا خزر
+name:nan,1,0,1,0.0,Caspi Hái
+name:nds-nl,1,0,1,0.0,Kaspiese Zee
+name:roa-rup,1,0,1,0.0,Amarea Caspicâ
+name:rue,1,0,1,0.0,Каспіцьке море
+name:sah,1,0,1,0.0,Каспий байҕала
+name:so,1,0,1,0.0,Bada Qaswiin
+name:sq,1,0,1,0.0,Liqeni Kas
+name:te,1,0,1,0.0,ఖాస్పియన్ సముద్రం
+name:tl,1,0,1,0.0,Dagat Caspian
+name:uz-cyr,1,0,1,0.0,Каспий денгизи
+name:yi,1,0,1,0.0,קאספישער ים
+name:yue,1,0,1,0.0,裏海
+image_2,1,0,1,0.0,http://media.shabestan.ir/Original/archive/9-1-1391/IMAGE634685665871343545.jpg
+building:part,1,0,1,0.0,no
+end_date,1,0,1,0.0,1971
+description:ar,1,0,1,0.0,"""شاطئ ريد في جزيرة هرمز، المعروفة باسم ""جزيرة قوس قزح"" بسبب مناظرها الطبيعية متع"
+description:bn,1,0,1,0.0,"""হরমুজ দ্বীপের রেড বিচ—যা তার উজ্জ্বল, বহুরঙা প্রাকৃতিক দৃশ্যের জন্য ""রেইনবো আইল"
+description:de,1,0,1,0.0,Der Red Beach auf der Insel Hormuz – bekannt als „Regenbogeninsel“ wegen ihrer l
+description:es,1,0,1,0.0,"""La Playa Roja en la Isla de Hormuz—conocida como la ""Isla Arcoíris"" por sus vib"
+description:fr,1,0,1,0.0,La plage rouge sur l’île d’Hormuz—surnommée « l’île Arc-en-ciel » pour ses paysa
+description:hi,1,0,1,0.0,"""हॉरमूज द्वीप पर रेड बीच—जिसे अपने चमकीले, बहुरंगी परिदृश्यों के लिए ""रेनबो आइलै"
+description:id,1,0,1,0.0,"""Pantai Merah di Pulau Hormuz—dikenal sebagai ""Pulau Pelangi"" karena lanskapnya "
+description:ja,1,0,1,0.0,ホルムズ島のレッドビーチは、多色の鮮やかな景観から「虹の島」として知られており、鉄分を多く含む土壌からできた輝く赤い砂が特徴です。印象的な赤い海岸線とカラフルな
+description:ko,1,0,1,0.0,"호르무즈 섬의 레드 비치는 다채로운 풍경으로 인해 '무지개 섬'으로 불리며, 철분이 풍부한 토양에서 생긴 빛나는 붉은 모래가 특징입니다. 눈길을"
+description:pt,1,0,1,0.0,"""A Praia Vermelha na Ilha de Hormuz—conhecida como ""Ilha do Arco-Íris"" por suas "
+description:ur,1,0,1,0.0,"""ہرمز جزیرے پر ریڈ بیچ—جو اپنے رنگارنگ اور متحرک مناظر کی وجہ سے ""رینبو آئی لینڈ"
+description:zh,1,0,1,0.0,霍尔木兹岛的红沙滩——因其色彩斑斓的景观而被称为“彩虹岛”——以富含铁质的土壤形成的闪亮红沙为特色。醒目的红色海岸线和色彩缤纷的山丘，使这里成为一处独特而难忘的
+male,1,0,1,0.0,only
+alt_name:br,1,0,1,0.0,Pleg-mor Oman
+alt_name:bs,1,0,1,0.0,Arapski Zaljev
+alt_name:da,1,0,1,0.0,Den Arabiske Golf
+alt_name:el,1,0,1,0.0,Αραβικός Κόλπος
+alt_name:es,1,0,1,0.0,El Golfo Árabe
+alt_name:he,1,0,1,0.0,אל-חליג' אל-ערבי
+alt_name:hi,1,0,1,0.0,अरब की खाड़ी
+alt_name:hu,1,0,1,0.0,Arab-öböl
+alt_name:hy,1,0,1,0.0,Արաբական ծոց
+alt_name:ja,1,0,1,0.0,アラビア湾
+alt_name:ko,1,0,1,0.0,아라비아 만
+alt_name:lfn,1,0,1,0.0,el Golfo Arabe
+alt_name:nl,1,0,1,0.0,अरब खाडी
+alt_name:pl,1,0,1,0.0,Zatoka Arabska
+alt_name:sr,1,0,1,0.0,Арапски залив
+alt_name:th,1,0,1,0.0,อ่าวอาหรับ
+alt_name:tr,1,0,1,0.0,Arabi Körfezi
+alt_name:yi,1,0,1,0.0,די אַראַביש גאַלף
+alt_name:zh,1,0,1,0.0,阿拉伯湾
+int_name:fr,1,0,1,0.0,Golfe d’Iran;Golfe Persique
+name:ang,1,0,1,0.0,Persian Gulf
+name:bs,1,0,1,0.0,Perzijski Zaljev
+name:rw,1,0,1,0.0,Ikigobe cy'Abarabu
+name:ug,1,0,1,0.0,Ghuba ya Arabia
+source:int_name,1,0,1,0.0,"Limits of Oceans and Seas (IHO S-23), 3rd ed."
+maxwidth,1,0,1,0.0,52 nautical miles
+name:sr-Latn,1,0,1,0.0,Ormuski moreuz
+short_name,1,0,1,0.0,Hormuz
+no,1,0,1,0.0,reservoir
+abandoned:man_made,1,0,1,0.0,bridge
+ruined:man_made,1,0,1,0.0,bridge
+opening_hours:covid19,1,0,1,0.0,off
+multipolygon,1,0,1,0.0,yes
+flood_prone,1,0,1,0.0,yes
+is_in:state_code,1,0,1,0.0,IR-18
+heritage:since,1,0,1,0.0,2016
+source:heritage,1,0,1,0.0,http://www.unesco.org/new/en/member-states/single-view/news/the_marshlands_of_ir
+source_ref,1,0,1,0.0,http://whc.unesco.org/en/list/1222
+alt_name:bg,1,0,1,0.0,Астрабадски залив
+alt_name:sh,1,0,1,0.0,Hasankolijski zaljev;Astarabadski zaljev
+alt_name:uk,1,0,1,0.0,Горганська затока;Астрабадська затока
+old_name:ru,1,0,1,0.0,полуостров Потёмкина
+protected,1,0,1,0.0,yes
+operator:short,1,0,1,0.0,TNC
+operator:wikidata,1,0,1,0.0,Q1813186
+ref:iranian_heritage,1,0,1,0.0,2030
+route,1,0,1,0.0,road
+toilets,1,0,1,0.0,yes
+female,1,0,1,0.0,only
+electrified,1,0,1,0.0,no
+gauge,1,0,1,0.0,1435
+railway,1,0,1,0.0,rail
+passable,1,0,1,0.0,no
+field,1,0,1,0.0,yes
+petroglyph,1,0,1,0.0,relief
+tree_form,1,0,1,0.0,natural
+picture,1,0,1,0.0,http://images.kojaro.com/2015/12/TITR-4AAS1.jpg
+FIXME,1,0,1,0.0,Translation needs to be checked
+roof:height,1,0,1,0.0,12
+name:en_1,1,0,1,0.0,Amir Chaqmaq Arcades
+iucn_level,1,0,1,0.0,IV
+ref:ir_national_heritage,1,0,1,0.0,29945
+ruin_type,1,0,1,0.0,bath
+location,1,0,1,0.0,outdoor
+addr:housename,1,0,1,0.0,خانه تاریخی
+buried:wikipedia,1,0,1,0.0,fa:ابوالحسن بیهقی
+bin,1,0,1,0.0,yes
+building:levels:underground,1,0,1,0.0,1
+drinking_water:seasonal,1,0,1,0.0,yes
+tower:construction,1,0,1,0.0,brick
+noexit,1,0,1,0.0,yes
+construction,1,0,1,0.0,yes
+bath:open_air,1,0,1,0.0,no
+hunting,1,0,1,0.0,no
+genus:en,1,0,1,0.0,cupressus sempervirens
+genus:wikipedia,1,0,1,0.0,fa:سرو (سرده)
+est_height,1,0,1,0.0,5
+est_length,1,0,1,0.0,52
+maxspeed:advisory,1,0,1,0.0,40
+valley,1,0,1,0.0,gorge
+magic_wand,1,0,1,0.0,yes
+baby,1,0,1,0.0,no
+wood:density,1,0,1,0.0,dense
+phone:mobile,1,0,1,0.0,09179245278
+fortification_type,1,0,1,0.0,earthworks
+addr:neighbourhood,1,0,1,0.0,بلوک دی
+addr:suburb,1,0,1,0.0,مجموعه ویلایی اقاقیا
+is_in:neighbourhood,1,0,1,0.0,Block D
+is_in:suburb,1,0,1,0.0,مجموعه ویلایی اقاقیا
+capacity:disabled,1,0,1,0.0,3
+parking,1,0,1,0.0,underground
+indoor,1,0,1,0.0,yes
+addr:county,1,0,1,0.0,زیرکوه
+addr:county:en,1,0,1,0.0,Zirkuh
+addr:province:en,1,0,1,0.0,South Khorasan
+addr:village:en,1,0,1,0.0,Afin
+architectural_style,1,0,1,0.0,Timurid
+ref:IR:heritage,1,0,1,0.0,2182
+source:date,1,0,1,0.0,2026-01
+pipeline,1,0,1,0.0,penstock
+watermill:part,1,0,1,0.0,penstock
+age,1,0,1,0.0,mature
+crown_type,1,0,1,0.0,c
+diameter_crown,1,0,1,0.0,15.7
+health,1,0,1,0.0,5
+monument,1,0,1,0.0,tree
+species:es,1,0,1,0.0,Ciprés Mediterráneo
+cemetery,1,0,1,0.0,grave
+delivery,1,0,1,0.0,no
+smoking,1,0,1,0.0,yes
+takeaway,1,0,1,0.0,no
+loc_name:ur,1,0,1,0.0,تپتان
+long_name:ar,1,0,1,0.0,جبل تفتان
+long_name:ur,1,0,1,0.0,کوہ تفقان
+service:bicycle:pump,1,0,1,0.0,yes
+man_made_1,1,0,1,0.0,yes
+seamark:beacon_lateral:category,1,0,1,0.0,starboard
+seamark:beacon_lateral:colour,1,0,1,0.0,green
+seamark:beacon_lateral:shape,1,0,1,0.0,pole
+seamark:beacon_lateral:system,1,0,1,0.0,iala-a
+seamark:light:1:character,1,0,1,0.0,Fl
+seamark:light:1:colour,1,0,1,0.0,green
+seamark:light:1:group,1,0,1,0.0,1
+seamark:light:1:height,1,0,1,0.0,12
+seamark:light:1:period,1,0,1,0.0,5
+seamark:light:1:range,1,0,1,0.0,10
+seamark:light:1:sector_end,1,0,1,0.0,360
+seamark:light:1:sector_start,1,0,1,0.0,0
+seamark:light:1:sequence,1,0,1,0.0,0.5+(4.5)
+seamark:name,1,0,1,0.0,Bandar-e Anzali new west mole light
+size,1,0,1,0.0,large
+drinkable,1,0,1,0.0,yes
+site_name,1,0,1,0.0,www.jazan.ir/shirband
+time,1,0,1,0.0,2018-09-17T07:51:40Z
+outdoor,1,0,1,0.0,yes
+name:alt,1,0,1,0.0,چمن متحرک چملی
+reservation,1,0,1,0.0,no
+craft,1,0,1,0.0,photographer
+tents,1,0,1,0.0,yes
+loc_name:en,1,0,1,0.0,Hasalkot
+bridge:support,1,0,1,0.0,pier
+free_flying:official,1,0,1,0.0,yes
+internet_access:ssid,1,0,1,0.0,insageram-mohammad.mahdavi1
+climbing:rock,1,0,1,0.0,granite
+peak,1,0,1,0.0,hill
+min_age,1,0,1,0.0,8
+payment:coins,1,0,1,0.0,yes
+payment:easycard,1,0,1,0.0,yes
+payment:electronic_purses,1,0,1,0.0,yes
+payment:nfc,1,0,1,0.0,yes
+payment:telephone_cards,1,0,1,0.0,yes
+cash_in,1,0,1,0.0,yes
+name:fa:pronunciation,1,0,1,0.0,Deraxt-e Čenār-e Kohansāl-e Tafreš
+map,1,0,1,0.0,yes
+addr:city:en,1,0,1,0.0,Lerd tourist village
+addr:full,1,0,1,0.0,"Lerd tourist village, Shahroud district, Khalkhal county, Ardabil province, Iran"
+name:lld,1,0,1,0.0,Kuh-e-Ghal'eh (Ferdows)
+lifeguard,1,0,1,0.0,yes
+healthcare:speciality,1,0,1,0.0,plastic_surgery;otolaryngology
+wreck:type,1,0,1,0.0,ship
+wreck:visible_at_high_tide,1,0,1,0.0,yes
+wreck:visible_at_low_tide,1,0,1,0.0,yes
+information,1,0,1,0.0,yes
+internet_access:fee,1,0,1,0.0,customers
+outdoor_seating,1,0,1,0.0,yes
+office,1,0,1,0.0,company
+summit:register,1,0,1,0.0,local
+name:tly,1,0,1,0.0,دوال کوه

@@ -1,0 +1,4887 @@
+{
+  "feature_count": 64631,
+  "unique_property_keys": 619,
+  "properties": {
+    "@id": {
+      "count": 64631,
+      "persian_value_count": 0,
+      "examples": [
+        "relation/3099",
+        "relation/3101",
+        "relation/3103"
+      ]
+    },
+    "natural": {
+      "count": 61555,
+      "persian_value_count": 1,
+      "examples": [
+        "water",
+        "wetland",
+        "wood"
+      ]
+    },
+    "@geometry": {
+      "count": 37096,
+      "persian_value_count": 0,
+      "examples": [
+        "center"
+      ]
+    },
+    "name": {
+      "count": 9532,
+      "persian_value_count": 9117,
+      "examples": [
+        "رود کارون",
+        "شط العرب",
+        "دریاچه مصنوعی"
+      ]
+    },
+    "water": {
+      "count": 6809,
+      "persian_value_count": 5,
+      "examples": [
+        "river",
+        "lake",
+        "reservoir"
+      ]
+    },
+    "ele": {
+      "count": 5799,
+      "persian_value_count": 8,
+      "examples": [
+        "14",
+        "-21",
+        "1918"
+      ]
+    },
+    "leaf_type": {
+      "count": 4651,
+      "persian_value_count": 0,
+      "examples": [
+        "mixed",
+        "broadleaved",
+        "needleleaved"
+      ]
+    },
+    "source": {
+      "count": 3119,
+      "persian_value_count": 5,
+      "examples": [
+        "Dshpak_landsat_lakes",
+        "Sentinel-2 L2A - 30 July 2020",
+        "Bing"
+      ]
+    },
+    "name:en": {
+      "count": 3117,
+      "persian_value_count": 12,
+      "examples": [
+        "Shatt al-Arab",
+        "Darbandikhan Reservoir",
+        "Citadel of Karim Khan-e Zand"
+      ]
+    },
+    "intermittent": {
+      "count": 2167,
+      "persian_value_count": 0,
+      "examples": [
+        "no",
+        "yes",
+        "dry"
+      ]
+    },
+    "tourism": {
+      "count": 1959,
+      "persian_value_count": 0,
+      "examples": [
+        "attraction",
+        "camp_site",
+        "picnic_site"
+      ]
+    },
+    "leaf_cycle": {
+      "count": 1798,
+      "persian_value_count": 0,
+      "examples": [
+        "deciduous",
+        "mixed",
+        "evergreen"
+      ]
+    },
+    "type": {
+      "count": 1440,
+      "persian_value_count": 0,
+      "examples": [
+        "multipolygon",
+        "building",
+        "boundary"
+      ]
+    },
+    "salt": {
+      "count": 1371,
+      "persian_value_count": 0,
+      "examples": [
+        "no",
+        "yes"
+      ]
+    },
+    "denotation": {
+      "count": 1104,
+      "persian_value_count": 7,
+      "examples": [
+        "Sea-buckthorn",
+        "alley",
+        "avenue"
+      ]
+    },
+    "boundary": {
+      "count": 977,
+      "persian_value_count": 0,
+      "examples": [
+        "protected_area",
+        "national_park",
+        "region"
+      ]
+    },
+    "wikidata": {
+      "count": 718,
+      "persian_value_count": 0,
+      "examples": [
+        "Q166966",
+        "Q22686359",
+        "Q206220"
+      ]
+    },
+    "wikipedia": {
+      "count": 556,
+      "persian_value_count": 436,
+      "examples": [
+        "ar:شط العرب",
+        "ar:بحيرة دربندخان",
+        "fa:ارگ کریم‌خان"
+      ]
+    },
+    "disused:natural": {
+      "count": 551,
+      "persian_value_count": 0,
+      "examples": [
+        "water"
+      ]
+    },
+    "height": {
+      "count": 452,
+      "persian_value_count": 1,
+      "examples": [
+        "16",
+        "1",
+        "20"
+      ]
+    },
+    "leisure": {
+      "count": 396,
+      "persian_value_count": 0,
+      "examples": [
+        "nature_reserve",
+        "park",
+        "garden"
+      ]
+    },
+    "name:fa": {
+      "count": 386,
+      "persian_value_count": 381,
+      "examples": [
+        "شط العرب",
+        "دریاچه دربندیخان",
+        "اثر طبیعی ملی خارکو"
+      ]
+    },
+    "historic": {
+      "count": 381,
+      "persian_value_count": 0,
+      "examples": [
+        "castle",
+        "caravanserai",
+        "yes"
+      ]
+    },
+    "alt_name": {
+      "count": 333,
+      "persian_value_count": 280,
+      "examples": [
+        "دجلة العوراء",
+        "دەریاچەی دەربەندیخان",
+        "دریاچه سد شهدای سنقر"
+      ]
+    },
+    "landuse": {
+      "count": 317,
+      "persian_value_count": 0,
+      "examples": [
+        "reservoir",
+        "forest",
+        "retail"
+      ]
+    },
+    "building": {
+      "count": 289,
+      "persian_value_count": 0,
+      "examples": [
+        "yes",
+        "hotel",
+        "school"
+      ]
+    },
+    "drinking_water": {
+      "count": 285,
+      "persian_value_count": 0,
+      "examples": [
+        "no",
+        "yes",
+        "untreated"
+      ]
+    },
+    "waterway": {
+      "count": 256,
+      "persian_value_count": 0,
+      "examples": [
+        "dam",
+        "river",
+        "stream"
+      ]
+    },
+    "name:ar": {
+      "count": 255,
+      "persian_value_count": 83,
+      "examples": [
+        "شط العرب",
+        "نهر كارون",
+        "بحيرة دربندیخان"
+      ]
+    },
+    "description": {
+      "count": 252,
+      "persian_value_count": 216,
+      "examples": [
+        "نهر عراقي يتكون من التقاء نهري دجلة والفرات ويصب في الخليج العربي",
+        "بحيرة دربندخان، تقع على بُعد 65 كم جنوب شرق السليمانية شمال العراق، وهي خزان مائي اصطناعي تشكّل بعد تشغيل سد دربندخان عام 1961. تخزن مياه نهر ديالى وتستخدم لتوليد الطاقة الكهرومائية، الري، والسيطرة على الفيضانات.",
+        "yardangs area (see https://en.wikipedia.org/wiki/Yardang)"
+      ]
+    },
+    "name:de": {
+      "count": 218,
+      "persian_value_count": 0,
+      "examples": [
+        "Schatt al-Arab",
+        "Darbandichan-See",
+        "Zitadelle des Karim Khan"
+      ]
+    },
+    "source:ele": {
+      "count": 217,
+      "persian_value_count": 0,
+      "examples": [
+        "Iran NGO Map",
+        "Iran Coverage Map",
+        "DEM Sentinel-1"
+      ]
+    },
+    "addr:city": {
+      "count": 207,
+      "persian_value_count": 179,
+      "examples": [
+        "اندیمشک",
+        "ملایر",
+        "نیشابور"
+      ]
+    },
+    "addr:street": {
+      "count": 204,
+      "persian_value_count": 194,
+      "examples": [
+        "لطفعلی خان",
+        "امام خمینی",
+        "بلوار گلها"
+      ]
+    },
+    "wetland": {
+      "count": 200,
+      "persian_value_count": 14,
+      "examples": [
+        "saltmarsh",
+        "mangrove",
+        "tidalflat"
+      ]
+    },
+    "prominence": {
+      "count": 190,
+      "persian_value_count": 0,
+      "examples": [
+        "4667",
+        "1164",
+        "1420"
+      ]
+    },
+    "protect_class": {
+      "count": 178,
+      "persian_value_count": 0,
+      "examples": [
+        "5",
+        "4",
+        "15"
+      ]
+    },
+    "protection_title": {
+      "count": 165,
+      "persian_value_count": 1,
+      "examples": [
+        "Protected Area",
+        "Wildlife Refuge",
+        "national park"
+      ]
+    },
+    "area": {
+      "count": 161,
+      "persian_value_count": 0,
+      "examples": [
+        "yes",
+        "no"
+      ]
+    },
+    "ref:IUCN": {
+      "count": 138,
+      "persian_value_count": 0,
+      "examples": [
+        "V",
+        "IV"
+      ]
+    },
+    "is_in": {
+      "count": 130,
+      "persian_value_count": 90,
+      "examples": [
+        "خوزستان",
+        "هرمزگان",
+        "گلستان"
+      ]
+    },
+    "name:ru": {
+      "count": 119,
+      "persian_value_count": 0,
+      "examples": [
+        "Шатт-эль-Араб",
+        "Дербандихан",
+        "Крепость Карим Хана"
+      ]
+    },
+    "aquaculture": {
+      "count": 111,
+      "persian_value_count": 0,
+      "examples": [
+        "fish"
+      ]
+    },
+    "name:fr": {
+      "count": 109,
+      "persian_value_count": 0,
+      "examples": [
+        "Chatt-el-Arab",
+        "Lac Darbandikhan",
+        "Mer Caspienne"
+      ]
+    },
+    "ownership": {
+      "count": 107,
+      "persian_value_count": 0,
+      "examples": [
+        "national"
+      ]
+    },
+    "surface": {
+      "count": 97,
+      "persian_value_count": 2,
+      "examples": [
+        "sand",
+        "paving_stones",
+        "asphalt"
+      ]
+    },
+    "amenity": {
+      "count": 96,
+      "persian_value_count": 0,
+      "examples": [
+        "place_of_worship",
+        "fountain",
+        "marketplace"
+      ]
+    },
+    "source:name": {
+      "count": 95,
+      "persian_value_count": 0,
+      "examples": [
+        "GNS",
+        "copied from way 4515340 added by CT agreed user",
+        "map.ir"
+      ]
+    },
+    "barrier": {
+      "count": 93,
+      "persian_value_count": 0,
+      "examples": [
+        "city_wall",
+        "fence",
+        "wall"
+      ]
+    },
+    "tidal": {
+      "count": 92,
+      "persian_value_count": 0,
+      "examples": [
+        "yes",
+        "no"
+      ]
+    },
+    "access": {
+      "count": 88,
+      "persian_value_count": 0,
+      "examples": [
+        "customers",
+        "permissive",
+        "permit"
+      ]
+    },
+    "operator": {
+      "count": 87,
+      "persian_value_count": 60,
+      "examples": [
+        "Ministry of Environment",
+        "Department of Environment, Iran",
+        "حسن حضرتی نوین"
+      ]
+    },
+    "source:prominence": {
+      "count": 80,
+      "persian_value_count": 1,
+      "examples": [
+        "5610-943 (col between Pona and Chumateleti)",
+        "GFT",
+        "4435-1820 (Col at the S of Dezej)"
+      ]
+    },
+    "is_in:country": {
+      "count": 74,
+      "persian_value_count": 0,
+      "examples": [
+        "Iran",
+        "iran"
+      ]
+    },
+    "alt_name:en": {
+      "count": 73,
+      "persian_value_count": 1,
+      "examples": [
+        "River of the Arabs",
+        "Cyrus the Great Dam;Sadd-e Kurosh-e Kabir",
+        "Ahouvan stone caravanserai"
+      ]
+    },
+    "place": {
+      "count": 71,
+      "persian_value_count": 0,
+      "examples": [
+        "sea",
+        "square",
+        "islet"
+      ]
+    },
+    "opening_hours": {
+      "count": 70,
+      "persian_value_count": 0,
+      "examples": [
+        "Mo-Su 08:00-18:00",
+        "24/7",
+        "Mo-Su 08:30-12:45; Mo-Su 14:30-17:15"
+      ]
+    },
+    "material": {
+      "count": 68,
+      "persian_value_count": 1,
+      "examples": [
+        "stone",
+        "brick",
+        "concrete"
+      ]
+    },
+    "geological": {
+      "count": 67,
+      "persian_value_count": 0,
+      "examples": [
+        "salt_dome",
+        "volcanic_caldera_rim",
+        "mud_volcano"
+      ]
+    },
+    "name:az": {
+      "count": 65,
+      "persian_value_count": 5,
+      "examples": [
+        "Şəttül-Ərəb",
+        "Xudafərin su anbarı",
+        "Araz su anbarı"
+      ]
+    },
+    "heritage": {
+      "count": 62,
+      "persian_value_count": 0,
+      "examples": [
+        "2",
+        "1",
+        "part of UNESCO World Heritage Site"
+      ]
+    },
+    "fixme": {
+      "count": 61,
+      "persian_value_count": 1,
+      "examples": [
+        "refine",
+        "orchard ?",
+        "was PGS"
+      ]
+    },
+    "name:it": {
+      "count": 60,
+      "persian_value_count": 0,
+      "examples": [
+        "Shatt al-'Arab",
+        "aramagh e hafez",
+        "Mar Caspio"
+      ]
+    },
+    "note": {
+      "count": 59,
+      "persian_value_count": 27,
+      "examples": [
+        "Urmia Lake before shrinking",
+        "protected_area",
+        "Duplicate gns:uni; Other is -2149924"
+      ]
+    },
+    "int_name": {
+      "count": 58,
+      "persian_value_count": 4,
+      "examples": [
+        "Shatt Al-Arab",
+        "Karim Khan Citadel",
+        "Portuguese Castle"
+      ]
+    },
+    "heritage:operator": {
+      "count": 57,
+      "persian_value_count": 0,
+      "examples": [
+        "ichhto",
+        "whc",
+        "iranian cultural heritage"
+      ]
+    },
+    "name:tr": {
+      "count": 55,
+      "persian_value_count": 0,
+      "examples": [
+        "Şattülarap",
+        "Derbendihan Gölü",
+        "Aras Baraj Gölü"
+      ]
+    },
+    "fee": {
+      "count": 54,
+      "persian_value_count": 0,
+      "examples": [
+        "yes",
+        "no"
+      ]
+    },
+    "loc_name": {
+      "count": 53,
+      "persian_value_count": 53,
+      "examples": [
+        "دریاچه نمک آران و بیدگل",
+        "باغ شازده",
+        "یاتاخ"
+      ]
+    },
+    "gns:dsg": {
+      "count": 52,
+      "persian_value_count": 0,
+      "examples": [
+        "SEA",
+        "GULF",
+        "STRT"
+      ]
+    },
+    "man_made": {
+      "count": 51,
+      "persian_value_count": 0,
+      "examples": [
+        "reservoir_covered",
+        "mound",
+        "bridge"
+      ]
+    },
+    "layer": {
+      "count": 50,
+      "persian_value_count": 0,
+      "examples": [
+        "1",
+        "2",
+        "0"
+      ]
+    },
+    "genus": {
+      "count": 46,
+      "persian_value_count": 1,
+      "examples": [
+        "Quercus",
+        "جنگل زربین",
+        "Cupressus"
+      ]
+    },
+    "attraction": {
+      "count": 45,
+      "persian_value_count": 0,
+      "examples": [
+        "formal_garden",
+        "historic",
+        "big_wheel"
+      ]
+    },
+    "name:ja": {
+      "count": 43,
+      "persian_value_count": 0,
+      "examples": [
+        "シャットゥルアラブ川",
+        "カスピ海",
+        "赤い浜辺"
+      ]
+    },
+    "religion": {
+      "count": 40,
+      "persian_value_count": 0,
+      "examples": [
+        "muslim",
+        "christian",
+        "zoroastrian"
+      ]
+    },
+    "description:en": {
+      "count": 39,
+      "persian_value_count": 0,
+      "examples": [
+        "Darbandikhan Lake, 65 km southeast of Sulaymaniyah in northern Iraq, is a large artificial reservoir formed after the Darbandikhan Dam began operation in 1961. It holds water from the Diyala River for hydroelectric power, irrigation, and flood control.",
+        "\"Red Beach on Hormuz Island—known as the \"Rainbow Island\" for its vibrant, multi-colored landscapes—features brilliant red sand from iron-rich soil. The striking red shoreline and colorful hills make this a unique and unforgettable natural attraction.\"",
+        "A compact historic fortress near Naibandan Wildlife Refuge (Tabas County, South Khorasan), built of stone and adobe. Four-sided, three levels, approx. 9 m high, ~7 m wide; formerly defensive, now cultural heritage."
+      ]
+    },
+    "name:es": {
+      "count": 38,
+      "persian_value_count": 0,
+      "examples": [
+        "Chat el Arab",
+        "Río Aras",
+        "Mar Caspio"
+      ]
+    },
+    "name:zh": {
+      "count": 38,
+      "persian_value_count": 0,
+      "examples": [
+        "阿拉伯河",
+        "莫克粉紅清真寺",
+        "里海"
+      ]
+    },
+    "highway": {
+      "count": 36,
+      "persian_value_count": 0,
+      "examples": [
+        "pedestrian",
+        "residential",
+        "footway"
+      ]
+    },
+    "lit": {
+      "count": 36,
+      "persian_value_count": 0,
+      "examples": [
+        "yes",
+        "no"
+      ]
+    },
+    "name:ml": {
+      "count": 36,
+      "persian_value_count": 0,
+      "examples": [
+        "ശത്ത്-അൽ അറബ്",
+        "തഷ്ക് തടാകം",
+        "ഷഹീദ് അബ്ബാസ്പൂർ അണക്കെട്ട് തടാകം"
+      ]
+    },
+    "reservoir_type": {
+      "count": 35,
+      "persian_value_count": 0,
+      "examples": [
+        "water_storage",
+        "sewage"
+      ]
+    },
+    "website": {
+      "count": 35,
+      "persian_value_count": 0,
+      "examples": [
+        "https://isfahanjamehmosque.com/",
+        "https://hamgardi.com/place/23390",
+        "http://itto.org/iran/attraction/red-beach-of-hormuz-persian-gulf"
+      ]
+    },
+    "crop": {
+      "count": 34,
+      "persian_value_count": 0,
+      "examples": [
+        "barberry"
+      ]
+    },
+    "visit": {
+      "count": 34,
+      "persian_value_count": 0,
+      "examples": [
+        "permissive"
+      ]
+    },
+    "wall": {
+      "count": 33,
+      "persian_value_count": 0,
+      "examples": [
+        "brick"
+      ]
+    },
+    "phone": {
+      "count": 31,
+      "persian_value_count": 0,
+      "examples": [
+        "+983433778609",
+        "+98 513 6008",
+        "+98 21 4478 7297;+98 21 4478 7595"
+      ]
+    },
+    "ref:ichhto": {
+      "count": 31,
+      "persian_value_count": 0,
+      "examples": [
+        "918",
+        "75",
+        "396"
+      ]
+    },
+    "ruins": {
+      "count": 28,
+      "persian_value_count": 0,
+      "examples": [
+        "castle",
+        "yes",
+        "bridge"
+      ]
+    },
+    "historic:civilization": {
+      "count": 27,
+      "persian_value_count": 0,
+      "examples": [
+        "sassanid",
+        "roman",
+        "safavid"
+      ]
+    },
+    "image": {
+      "count": 27,
+      "persian_value_count": 3,
+      "examples": [
+        "https://upload.wikimedia.org/wikipedia/commons/e/e3/شط_العرب_البصرة.jpg",
+        "http://img1.tebyan.net/big/1391/11/45864895614585811233122115104149250216.gif",
+        "File:Hormuz Island 20180920 05.jpg"
+      ]
+    },
+    "name:ckb": {
+      "count": 27,
+      "persian_value_count": 26,
+      "examples": [
+        "شەتەلعەرەب",
+        "دەریاچەی دەربەندیخان",
+        "دەریای قەزوین"
+      ]
+    },
+    "bridge": {
+      "count": 26,
+      "persian_value_count": 0,
+      "examples": [
+        "yes",
+        "boardwalk",
+        "viaduct"
+      ]
+    },
+    "name:ku": {
+      "count": 26,
+      "persian_value_count": 5,
+      "examples": [
+        "Şetelereb",
+        "Gola bendava Derbendîxan",
+        "Deryaya Qezwînê"
+      ]
+    },
+    "seasonal": {
+      "count": 26,
+      "persian_value_count": 0,
+      "examples": [
+        "yes",
+        "winter/spring",
+        "no"
+      ]
+    },
+    "denomination": {
+      "count": 25,
+      "persian_value_count": 0,
+      "examples": [
+        "shia",
+        "armenian_apostolic",
+        "sufi"
+      ]
+    },
+    "wheelchair": {
+      "count": 23,
+      "persian_value_count": 0,
+      "examples": [
+        "yes",
+        "no",
+        "yes;no"
+      ]
+    },
+    "ref:WDPA": {
+      "count": 22,
+      "persian_value_count": 0,
+      "examples": [
+        "705",
+        "313261",
+        "313254"
+      ]
+    },
+    "start_date": {
+      "count": 21,
+      "persian_value_count": 0,
+      "examples": [
+        "1868",
+        "1897",
+        "1871"
+      ]
+    },
+    "addr:housenumber": {
+      "count": 20,
+      "persian_value_count": 5,
+      "examples": [
+        "69-64",
+        "اصفهان-اب نیل",
+        "میدان شهدا خیابان قیام روبروی مدرسه مصلا"
+      ]
+    },
+    "name:hy": {
+      "count": 20,
+      "persian_value_count": 0,
+      "examples": [
+        "Շատ ալ-Արաբ",
+        "Խոդա Աֆարինի ջրամբար",
+        "Արաքս"
+      ]
+    },
+    "ele:source": {
+      "count": 19,
+      "persian_value_count": 0,
+      "examples": [
+        "gitashenasi",
+        "DEM Sentinel-1"
+      ]
+    },
+    "tomb": {
+      "count": 19,
+      "persian_value_count": 0,
+      "examples": [
+        "rock-cut",
+        "mausoleum",
+        "yes"
+      ]
+    },
+    "diameter": {
+      "count": 18,
+      "persian_value_count": 0,
+      "examples": [
+        "6 m",
+        "150",
+        "200"
+      ]
+    },
+    "is_in:state": {
+      "count": 18,
+      "persian_value_count": 1,
+      "examples": [
+        "Bushehr",
+        "گیلان",
+        "Razavi Khorasan"
+      ]
+    },
+    "name:azb": {
+      "count": 18,
+      "persian_value_count": 14,
+      "examples": [
+        "شط العرب",
+        "آراز چایی",
+        "خزر دنیزی"
+      ]
+    },
+    "name:cs": {
+      "count": 18,
+      "persian_value_count": 0,
+      "examples": [
+        "Šatt al-Arab",
+        "Kaspické moře",
+        "Lút"
+      ]
+    },
+    "name:pt": {
+      "count": 18,
+      "persian_value_count": 0,
+      "examples": [
+        "Xatalárabe",
+        "Mar Cáspio",
+        "Torre Azadi"
+      ]
+    },
+    "name:ur": {
+      "count": 18,
+      "persian_value_count": 16,
+      "examples": [
+        "شط العرب",
+        "اراس دریا",
+        "بحیرہ قزوین"
+      ]
+    },
+    "ref:whc": {
+      "count": 18,
+      "persian_value_count": 0,
+      "examples": [
+        "1397",
+        "1372",
+        "1505"
+      ]
+    },
+    "species": {
+      "count": 18,
+      "persian_value_count": 0,
+      "examples": [
+        "Quercus Ilex",
+        "Quercus ilex",
+        "Cupressus sempervirens"
+      ]
+    },
+    "name:hi": {
+      "count": 17,
+      "persian_value_count": 0,
+      "examples": [
+        "कैस्पियन सागर",
+        "बख्तगान वन्यजीव अभयारण्य",
+        "नमक झील"
+      ]
+    },
+    "name:uk": {
+      "count": 17,
+      "persian_value_count": 0,
+      "examples": [
+        "Шатт-ель-Араб",
+        "Дербандіхан",
+        "Аракс"
+      ]
+    },
+    "old_name": {
+      "count": 17,
+      "persian_value_count": 16,
+      "examples": [
+        "کاروانسرای شاه عباسی",
+        "مسجد عتیق",
+        "برج شهیاد"
+      ]
+    },
+    "name:he": {
+      "count": 16,
+      "persian_value_count": 0,
+      "examples": [
+        "שט אל-ערב",
+        "הים הכספי",
+        "אגם נמכ"
+      ]
+    },
+    "name:hr": {
+      "count": 16,
+      "persian_value_count": 0,
+      "examples": [
+        "Šat al-Arab",
+        "Darbandihansko jezero",
+        "Kaspijsko jezero"
+      ]
+    },
+    "whc:criteria": {
+      "count": 16,
+      "persian_value_count": 0,
+      "examples": [
+        "ii",
+        "(i),(ii),(iii),(iv),(vi)",
+        "vii,viii"
+      ]
+    },
+    "archaeological_site": {
+      "count": 15,
+      "persian_value_count": 0,
+      "examples": [
+        "structure",
+        "city",
+        "settlement"
+      ]
+    },
+    "boat": {
+      "count": 15,
+      "persian_value_count": 0,
+      "examples": [
+        "no",
+        "yes",
+        "private"
+      ]
+    },
+    "castle_type": {
+      "count": 15,
+      "persian_value_count": 0,
+      "examples": [
+        "fortress",
+        "defensive",
+        "peak"
+      ]
+    },
+    "name:sk": {
+      "count": 15,
+      "persian_value_count": 0,
+      "examples": [
+        "Šatt al-Arab",
+        "Kaspické more",
+        "Hámún"
+      ]
+    },
+    "building:levels": {
+      "count": 14,
+      "persian_value_count": 0,
+      "examples": [
+        "1.5",
+        "7",
+        "4"
+      ]
+    },
+    "name:tk": {
+      "count": 14,
+      "persian_value_count": 0,
+      "examples": [
+        "Hazar deňzi",
+        "Pars Aýlagy",
+        "Turan Ýaban Ýaşaýyş Sygynagy"
+      ]
+    },
+    "wikimedia_commons": {
+      "count": 14,
+      "persian_value_count": 0,
+      "examples": [
+        "Category:Shatt_al-Arab",
+        "Category:Caspian Sea",
+        "Category:Urmia Lake"
+      ]
+    },
+    "name:nl": {
+      "count": 13,
+      "persian_value_count": 0,
+      "examples": [
+        "Sjatt al-Arab",
+        "Kaspische Zee",
+        "Golf van Oman"
+      ]
+    },
+    "content": {
+      "count": 12,
+      "persian_value_count": 0,
+      "examples": [
+        "sewage",
+        "rainwater",
+        "water"
+      ]
+    },
+    "name:be": {
+      "count": 12,
+      "persian_value_count": 0,
+      "examples": [
+        "Арвандруд",
+        "Аракс",
+        "Каспійскае мора"
+      ]
+    },
+    "sport": {
+      "count": 12,
+      "persian_value_count": 0,
+      "examples": [
+        "swimming",
+        "soccer",
+        "zurkhaneh_sport"
+      ]
+    },
+    "alt_name:fa": {
+      "count": 11,
+      "persian_value_count": 11,
+      "examples": [
+        "بحر بصره;اروندرود",
+        "دریای کاسپین",
+        "دریای مکران"
+      ]
+    },
+    "fishing": {
+      "count": 11,
+      "persian_value_count": 0,
+      "examples": [
+        "permit",
+        "yes",
+        "no"
+      ]
+    },
+    "name:sv": {
+      "count": 11,
+      "persian_value_count": 0,
+      "examples": [
+        "Shatt al-Arab",
+        "Aras",
+        "Kaspiska havet"
+      ]
+    },
+    "shop": {
+      "count": 11,
+      "persian_value_count": 0,
+      "examples": [
+        "mall",
+        "convenience",
+        "bicycle"
+      ]
+    },
+    "volcano:type": {
+      "count": 11,
+      "persian_value_count": 0,
+      "examples": [
+        "stratovolcano",
+        "mud_volcano",
+        "scoria"
+      ]
+    },
+    "water_source": {
+      "count": 11,
+      "persian_value_count": 0,
+      "examples": [
+        "rain fed",
+        "pond",
+        "river"
+      ]
+    },
+    "whc:inscription_date": {
+      "count": 11,
+      "persian_value_count": 0,
+      "examples": [
+        "2012",
+        "2011",
+        "2016"
+      ]
+    },
+    "addr:postcode": {
+      "count": 10,
+      "persian_value_count": 0,
+      "examples": [
+        "69561",
+        "71388_95919",
+        "6917656456"
+      ]
+    },
+    "building:material": {
+      "count": 10,
+      "persian_value_count": 0,
+      "examples": [
+        "brick",
+        "stone"
+      ]
+    },
+    "emergency": {
+      "count": 10,
+      "persian_value_count": 0,
+      "examples": [
+        "yes",
+        "water_tank"
+      ]
+    },
+    "isolation": {
+      "count": 10,
+      "persian_value_count": 0,
+      "examples": [
+        "1165",
+        "19",
+        "119"
+      ]
+    },
+    "name:ar1": {
+      "count": 10,
+      "persian_value_count": 3,
+      "examples": [
+        "هور المریس",
+        "قناة خیین",
+        "بردتریاه"
+      ]
+    },
+    "name:ca": {
+      "count": 10,
+      "persian_value_count": 0,
+      "examples": [
+        "Xatt al-Arab",
+        "Mar Càspia",
+        "Golf d'Oman"
+      ]
+    },
+    "name:ko": {
+      "count": 10,
+      "persian_value_count": 0,
+      "examples": [
+        "샤트알아랍강",
+        "카스피 해",
+        "붉은 해변"
+      ]
+    },
+    "name:sr": {
+      "count": 10,
+      "persian_value_count": 0,
+      "examples": [
+        "Шат ел Араб",
+        "Аракс",
+        "Каспијско језеро"
+      ]
+    },
+    "taxon:family": {
+      "count": 10,
+      "persian_value_count": 0,
+      "examples": [
+        "Arecaceae"
+      ]
+    },
+    "addr:country": {
+      "count": 9,
+      "persian_value_count": 2,
+      "examples": [
+        "IR",
+        "ایران",
+        "پروژکتور مشهد"
+      ]
+    },
+    "bicycle": {
+      "count": 9,
+      "persian_value_count": 0,
+      "examples": [
+        "designated",
+        "yes",
+        "no"
+      ]
+    },
+    "covered": {
+      "count": 9,
+      "persian_value_count": 0,
+      "examples": [
+        "yes",
+        "arcade",
+        "no"
+      ]
+    },
+    "name:bg": {
+      "count": 9,
+      "persian_value_count": 0,
+      "examples": [
+        "Шат ал-Араб",
+        "Аракс",
+        "Каспийско море"
+      ]
+    },
+    "name:el": {
+      "count": 9,
+      "persian_value_count": 0,
+      "examples": [
+        "Ἀράξης",
+        "Κασπία Θάλασσα",
+        "Περσικός Κόλπος"
+      ]
+    },
+    "name:hu": {
+      "count": 9,
+      "persian_value_count": 0,
+      "examples": [
+        "Shatt al-Arab",
+        "Kaszpi-tenger",
+        "Ománi-öböl"
+      ]
+    },
+    "name:pl": {
+      "count": 9,
+      "persian_value_count": 0,
+      "examples": [
+        "Szatt al-Arab",
+        "Morze Kaspijskie",
+        "Bordż-e Azadi"
+      ]
+    },
+    "colour": {
+      "count": 8,
+      "persian_value_count": 0,
+      "examples": [
+        "brown",
+        "yellow",
+        "beige"
+      ]
+    },
+    "disused": {
+      "count": 8,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "email": {
+      "count": 8,
+      "persian_value_count": 0,
+      "examples": [
+        "sarayekhankohne@gmail.com",
+        "info@vayuresidency.org",
+        "amirhaji46@gmail.com"
+      ]
+    },
+    "glacier:type": {
+      "count": 8,
+      "persian_value_count": 0,
+      "examples": [
+        "mountain"
+      ]
+    },
+    "name:bal": {
+      "count": 8,
+      "persian_value_count": 8,
+      "examples": [
+        "گابریک ءُ جاسک سپارگ بوتءِ الاکہ",
+        "هلمند هامون",
+        "سھرݔن مک شکار ممنوعءِ الاکہ"
+      ]
+    },
+    "name:fi": {
+      "count": 8,
+      "persian_value_count": 0,
+      "examples": [
+        "Shatt al-Arab",
+        "Kaspianmeri",
+        "Omaninlahti"
+      ]
+    },
+    "name:ka": {
+      "count": 8,
+      "persian_value_count": 0,
+      "examples": [
+        "შატ-ელ-არაბი",
+        "კასპიის ზღვა",
+        "არაბეთის ყურე"
+      ]
+    },
+    "object:city": {
+      "count": 8,
+      "persian_value_count": 0,
+      "examples": [
+        "Abarkuh"
+      ]
+    },
+    "subject:wikipedia": {
+      "count": 8,
+      "persian_value_count": 6,
+      "examples": [
+        "fa:شاه نعمت‌الله ولی",
+        "fa:ابراهیم خان ظهیرالدوله",
+        "en:Kamal-ol-molk"
+      ]
+    },
+    "url": {
+      "count": 8,
+      "persian_value_count": 0,
+      "examples": [
+        "https://www.360cities.net/image/sunset-talab-meighan-arak-iran;https://www.360cities.net/image/kavir-mighan-arak;https://www.360cities.net/image/talab-meyghan-arak",
+        "http://www.irandeserts.com/content/%D8%AF%D8%B1%DA%AF%D8%A7%D9%87_%DA%A9%D9%88%DB%8C%D8%B1/%D8%AF%D8%B1%D9%8A%D8%A7%DA%86%D9%87%E2%80%8C%D9%87%D8%A7_%D9%88_%D8%AA%D8%A7%D9%84%D8%A7%D8%A8%D9%87%D8%A7/%D8%AA%D8%A7%D9%84%D8%A7%D8%A8_%D8%A8%D8%B1%D9%85_%D8%A7",
+        "http://tochal.org/fa/WebContents/1068-%D8%B3%D8%A7%D8%B9%D8%A7%D8%AA_%D9%88_%D8%B1%D9%88%D8%B2%D9%87%D8%A7%DB%8C_%DA%A9%D8%A7%D8%B1%DB%8C"
+      ]
+    },
+    "alt_name:ar": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "بحيرة سد دربندیخان",
+        "بحر القزوين;بحر الخزر;بحر الخرز;بحيرة قزوين",
+        "خليج البصرة"
+      ]
+    },
+    "check_date": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "2024-03-16",
+        "2024-05-05",
+        "2025-01-23"
+      ]
+    },
+    "circumference": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "18",
+        "9.50",
+        "28 m"
+      ]
+    },
+    "created_by": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "JOSM",
+        "Potlatch 0.10b",
+        "Potlatch 0.10f"
+      ]
+    },
+    "direction": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "N",
+        "S",
+        "90"
+      ]
+    },
+    "grassland": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "prairie"
+      ]
+    },
+    "name:bn": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "শাতিল আরব",
+        "লাল সমুদ্র সৈকত",
+        "পার্সিয়ান উপসাগর"
+      ]
+    },
+    "name:da": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "Shatt al-Arab",
+        "Kaspiske Hav",
+        "Omanbugten"
+      ]
+    },
+    "name:eo": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "Ŝatt al-Arab",
+        "Kaspio",
+        "Golfo de Omano"
+      ]
+    },
+    "name:eu": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "Xatt al-Arab",
+        "Kaspiar itsasoa",
+        "Omango golkoa"
+      ]
+    },
+    "name:kk": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "Арас",
+        "Каспий теңізі",
+        "Парсы шығанағы"
+      ]
+    },
+    "name:lt": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "Šat al Arabas",
+        "Kaspijos jūra",
+        "Persijos įlanka"
+      ]
+    },
+    "name:mk": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "Шат ел-Араб",
+        "Аракс",
+        "Демавенд"
+      ]
+    },
+    "name:mzn": {
+      "count": 7,
+      "persian_value_count": 7,
+      "examples": [
+        "مازرون دریا",
+        "خلیج فارس",
+        "ابوموسی"
+      ]
+    },
+    "name:sl": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "Šat el Arab",
+        "Kaspijsko jezero",
+        "Omanski zaliv"
+      ]
+    },
+    "name:vi": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "Shatt al-Arab",
+        "Biển Caspi",
+        "Vịnh Oman"
+      ]
+    },
+    "population": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "18000",
+        "1818",
+        "284"
+      ]
+    },
+    "ship": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "no"
+      ]
+    },
+    "source:position": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "MapBox",
+        "Maxar Premium",
+        "Maxar standard"
+      ]
+    },
+    "tunnel": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "culvert",
+        "yes"
+      ]
+    },
+    "volcano:status": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "dormant",
+        "extinct",
+        "active"
+      ]
+    },
+    "width": {
+      "count": 7,
+      "persian_value_count": 0,
+      "examples": [
+        "21 nautical miles",
+        "2",
+        "10"
+      ]
+    },
+    "GNS:id": {
+      "count": 6,
+      "persian_value_count": 0,
+      "examples": [
+        "6209541",
+        "-3076412",
+        "-3063810"
+      ]
+    },
+    "admin_level": {
+      "count": 6,
+      "persian_value_count": 0,
+      "examples": [
+        "7",
+        "5",
+        "8"
+      ]
+    },
+    "alt_name:ru": {
+      "count": 6,
+      "persian_value_count": 0,
+      "examples": [
+        "Арабский берег",
+        "Каспий",
+        "Арабский залив"
+      ]
+    },
+    "basin": {
+      "count": 6,
+      "persian_value_count": 0,
+      "examples": [
+        "water",
+        "retention",
+        "waste_water"
+      ]
+    },
+    "building:condition": {
+      "count": 6,
+      "persian_value_count": 0,
+      "examples": [
+        "ruin"
+      ]
+    },
+    "depth": {
+      "count": 6,
+      "persian_value_count": 0,
+      "examples": [
+        "4",
+        "2",
+        "1.5"
+      ]
+    },
+    "description:fa": {
+      "count": 6,
+      "persian_value_count": 6,
+      "examples": [
+        "ساحل سرخ جزیره هرمز—که به خاطر مناظر رنگارنگ و چشم‌نوازش به «جزیره رنگین‌کمان» معروف است—دارای شن‌های قرمز درخشان ناشی از خاک غنی از آهن است. خط ساحلی سرخ و تپه‌های رنگارنگ، این منطقه را به جاذبه‌ای طبیعی منحصر به فرد و فراموش‌نشدنی تبدیل کرده‌اند.",
+        "دژ تاریخی مُک شور در نزدیکی پناهگاه حیات‌وحش نایبندان (شهرستان طبس، خراسان جنوبی) با مصالح سنگ و خشت؛ چهارگوش، سه طبقه، حدود ۹ متر ارتفاع و ~۷ متر عرض؛ با کاربری دفاعی در گذشته و شناخته‌شده به‌عنوان میراث فرهنگی.",
+        "محوطه بیرونی، پیش‌خان و حریم پیرامونی حوض‌انبار تاریخی سنگی افین"
+      ]
+    },
+    "maxspeed": {
+      "count": 6,
+      "persian_value_count": 1,
+      "examples": [
+        "30",
+        "۴۰"
+      ]
+    },
+    "name:ba": {
+      "count": 6,
+      "persian_value_count": 0,
+      "examples": [
+        "Шәтт әл-Ғәрәп",
+        "Аракс",
+        "Каспий диңгеҙе"
+      ]
+    },
+    "name:cv": {
+      "count": 6,
+      "persian_value_count": 0,
+      "examples": [
+        "Шатт-эль-Араб",
+        "Аракс",
+        "Каспи тинĕсĕ"
+      ]
+    },
+    "name:glk": {
+      "count": 6,
+      "persian_value_count": 6,
+      "examples": [
+        "کاسپی دریا",
+        "خلیج فارس",
+        "قلعه رۊخان"
+      ]
+    },
+    "name:id": {
+      "count": 6,
+      "persian_value_count": 0,
+      "examples": [
+        "Sungai Shatt al-Arab",
+        "Laut Kaspia",
+        "Pantai Merah"
+      ]
+    },
+    "name:sh": {
+      "count": 6,
+      "persian_value_count": 0,
+      "examples": [
+        "Šat al-Arab",
+        "Kaspijsko more",
+        "Bune"
+      ]
+    },
+    "owner": {
+      "count": 6,
+      "persian_value_count": 0,
+      "examples": [
+        "national"
+      ]
+    },
+    "source:tracer": {
+      "count": 6,
+      "persian_value_count": 0,
+      "examples": [
+        "scanaerial"
+      ]
+    },
+    "source:zoomlevel": {
+      "count": 6,
+      "persian_value_count": 0,
+      "examples": [
+        "14",
+        "15",
+        "16;17;18;19"
+      ]
+    },
+    "species:wikidata": {
+      "count": 6,
+      "persian_value_count": 0,
+      "examples": [
+        "Q147513"
+      ]
+    },
+    "building:colour": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "brown",
+        "#AB9273",
+        "#D4A04C"
+      ]
+    },
+    "buried:wikidata": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "Q8423",
+        "Q4025793",
+        "Q3458926"
+      ]
+    },
+    "canoe": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "yes",
+        "no"
+      ]
+    },
+    "designation": {
+      "count": 5,
+      "persian_value_count": 3,
+      "examples": [
+        "لاگن های تبخیری مواد شمیایی",
+        "جنگل",
+        "Qajar Kheyl Lake"
+      ]
+    },
+    "foot": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "designated",
+        "yes",
+        "no"
+      ]
+    },
+    "heritage:website": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "http://whc.unesco.org/en/list/1372",
+        "http://whc.unesco.org/en/tentativelists/5182/",
+        "http://whc.unesco.org/en/list/1208"
+      ]
+    },
+    "internet_access": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "wlan",
+        "yes"
+      ]
+    },
+    "is_in:country_code": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "ir",
+        "IR"
+      ]
+    },
+    "level": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "2",
+        "-1",
+        "0"
+      ]
+    },
+    "motorboat": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "no"
+      ]
+    },
+    "name:az-Arab": {
+      "count": 5,
+      "persian_value_count": 5,
+      "examples": [
+        "کیچیک زاب چایی",
+        "(ینگیجه بندی (سددی",
+        "تفتان"
+      ]
+    },
+    "name:cy": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "Shatt al-Arab",
+        "Môr Caspia",
+        "Mynydd Damavand"
+      ]
+    },
+    "name:et": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "Shaţţ al-‘Arab",
+        "Kaspia meri",
+        "Pärsia laht"
+      ]
+    },
+    "name:ky": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "Аракс",
+        "Персеполь",
+        "Баладе суу каналы"
+      ]
+    },
+    "name:mn": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "Каспийн тэнгис",
+        "Дамаванд уул",
+        "Персеполь"
+      ]
+    },
+    "name:no": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "hatt al-Arab",
+        "Det kaspiske hav",
+        "Persiabukten"
+      ]
+    },
+    "name:os": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "Аракс",
+        "Къаспы денджыз",
+        "Демавенд"
+      ]
+    },
+    "name:ro": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "Shatt al-Arab",
+        "Râul Aras",
+        "Marea Caspică"
+      ]
+    },
+    "name:tg": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "Арас",
+        "Баҳри Каспий",
+        "Кӯҳҳои Албурз"
+      ]
+    },
+    "name:zh-Hans": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "里海",
+        "波斯湾",
+        "霍尔木兹海峡"
+      ]
+    },
+    "name:zh-Hant": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "裏海",
+        "波斯灣",
+        "霍爾木茲海峽"
+      ]
+    },
+    "operator:type": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "government",
+        "private",
+        "ngo"
+      ]
+    },
+    "subject:wikidata": {
+      "count": 5,
+      "persian_value_count": 0,
+      "examples": [
+        "Q913037",
+        "Q1659496",
+        "Q112633353"
+      ]
+    },
+    "addr:province": {
+      "count": 4,
+      "persian_value_count": 3,
+      "examples": [
+        "خراسان رضوی",
+        "خراسان جنوبی",
+        "لرستان"
+      ]
+    },
+    "addr:village": {
+      "count": 4,
+      "persian_value_count": 4,
+      "examples": [
+        "افین",
+        "گلدره",
+        "انوچ"
+      ]
+    },
+    "glacier:ele_bottom": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "3900",
+        "4050",
+        "4100"
+      ]
+    },
+    "glacier:ele_top": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "5070",
+        "5400",
+        "5330"
+      ]
+    },
+    "gns:uni": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "-2149697",
+        "-3846848",
+        "-2149940"
+      ]
+    },
+    "horse": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "no"
+      ]
+    },
+    "incline": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "up",
+        "down"
+      ]
+    },
+    "industrial": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "settling_pond"
+      ]
+    },
+    "inscription": {
+      "count": 4,
+      "persian_value_count": 3,
+      "examples": [
+        "yes",
+        "بوستان سنگی کمر مقبولا",
+        "امامزاده سید محمد نقیب"
+      ]
+    },
+    "length": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "1700",
+        "2000",
+        "2200"
+      ]
+    },
+    "managed": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "no",
+        "yes"
+      ]
+    },
+    "name:am": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "አራስ ወንዝ",
+        "ካስፒያን ባሕር"
+      ]
+    },
+    "name:grc": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "Ἀράξης",
+        "Καπρος"
+      ]
+    },
+    "name:hsb": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "Aras",
+        "Kaspiske morjo"
+      ]
+    },
+    "name:lv": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "Šatelaraba",
+        "Kaspijas jūra",
+        "Demāvends"
+      ]
+    },
+    "name:nn": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "Shatt al-Arab",
+        "Hawizehmyrene",
+        "Elburz"
+      ]
+    },
+    "name:oc": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "Chatt el-Arab",
+        "Mar Caspiana",
+        "Mont Damavand"
+      ]
+    },
+    "name:pnb": {
+      "count": 4,
+      "persian_value_count": 3,
+      "examples": [
+        "شط العرب",
+        "کیسپیئن سمندر",
+        "خلیج فارس"
+      ]
+    },
+    "name:ps": {
+      "count": 4,
+      "persian_value_count": 3,
+      "examples": [
+        "شات العرب",
+        "د فارس خليج",
+        "هلمند سمندرګی"
+      ]
+    },
+    "name:th": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "ชัฏฏุลอะร็อบ",
+        "อ่าวเปอร์เซีย",
+        "ยอดเขาดามาวานด์"
+      ]
+    },
+    "name:tt": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "Аракс",
+        "Каспий диңгезе"
+      ]
+    },
+    "name:uz": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "Shatt ul-Arab",
+        "Kaspiy dengizi",
+        "Damovand"
+      ]
+    },
+    "old_name:en": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "Shah Abbasi Caravanserai of Bisotun",
+        "Kolbibi",
+        "Chaleh Meydan bath"
+      ]
+    },
+    "oneway": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "yes",
+        "no"
+      ]
+    },
+    "ref": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "1077",
+        "408",
+        "Segh"
+      ]
+    },
+    "spring:type": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "hot"
+      ]
+    },
+    "supervised": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "no",
+        "yes"
+      ]
+    },
+    "water_supply": {
+      "count": 4,
+      "persian_value_count": 0,
+      "examples": [
+        "running_water"
+      ]
+    },
+    "abandoned": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "air_conditioning": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "alt_name:az": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "Urmiyə gölü;Urmiya gölü",
+        "Bəsrə körfəzi;Ərəb körfəzi",
+        "Tirəmin"
+      ]
+    },
+    "alt_name:de": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "Freitagsmoschee",
+        "Arabischer Golf",
+        "Kandovan Höhlenwohnungen"
+      ]
+    },
+    "alt_name:vi": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "Lý Hải",
+        "Biển Oman",
+        "Vịnh Péc-xích;Vịnh Ả Rập"
+      ]
+    },
+    "bridge:structure": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "arch",
+        "suspension"
+      ]
+    },
+    "capacity": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "50",
+        "150",
+        "30"
+      ]
+    },
+    "city": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "kerman",
+        "shahdad",
+        "Kerman"
+      ]
+    },
+    "condition": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "damaged"
+      ]
+    },
+    "contact:instagram": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "janatsara2021",
+        "charkhesh_fazaee",
+        "darvaze_mehriz.complex"
+      ]
+    },
+    "cuisine": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "regional;kebab",
+        "persian",
+        "persian;sandwich"
+      ]
+    },
+    "free_flying:paragliding": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "free_flying:site": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "landing",
+        "takeoff"
+      ]
+    },
+    "historic:period": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "achaemenid",
+        "bronze-age"
+      ]
+    },
+    "image_1": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "http://www.citypedia.ir/wp-content/uploads/2014/12/%D8%B9%DA%A9%D8%B3-%D9%87%D9%88%D8%A7%DB%8C%DB%8C-%D9%85%D8%B3%D8%AC%D8%AF-%D8%AC%D8%A7%D9%85%D8%B9-%D9%82%D8%B2%D9%88%DB%8C%D9%86.jpg",
+        "http://www.ettelaat.com/etint/wp-content/uploads/2015/10/1511.jpg",
+        "http://sobheqazvin.ir/media/Picture/1.jpg"
+      ]
+    },
+    "is_in:province": {
+      "count": 3,
+      "persian_value_count": 2,
+      "examples": [
+        "هرمزگان",
+        "کهگیلویه و بویراحمد",
+        "East Azerbaijan"
+      ]
+    },
+    "min_height": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "1.0",
+        "0.3",
+        "0.7"
+      ]
+    },
+    "mountain_pass": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "name:arc": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "ܝܡܐ ܐܚܪܝܐ",
+        "ܒܪܩܩܐ ܥܪܒܝܐ",
+        "ܙܒܐ"
+      ]
+    },
+    "name:bh": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "शत अल अरब",
+        "दमावंद परबत",
+        "अलबोर्ज़ परबत"
+      ]
+    },
+    "name:ceb": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "Shatt al Arab",
+        "Greater Tunb",
+        "Abu Musa Island"
+      ]
+    },
+    "name:etymology:wikidata": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "Q5781655"
+      ]
+    },
+    "name:fy": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "Arabyske Rivier",
+        "Kaspyske See",
+        "Elbûrs-berchtme"
+      ]
+    },
+    "name:hyw": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "Արաքս"
+      ]
+    },
+    "name:ia": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "Mar Caspie",
+        "Golfo de Oman",
+        "Golfo Persic"
+      ]
+    },
+    "name:la": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "Šaṭṭ al-ʿArab",
+        "Persici sinus",
+        "Caprus"
+      ]
+    },
+    "name:sdh": {
+      "count": 3,
+      "persian_value_count": 3,
+      "examples": [
+        "زێی بچووک",
+        "پلنگەکان کونە",
+        "گوڵه ناو"
+      ]
+    },
+    "name:ta": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "சாட் அல் அராப் ஆறு",
+        "காசுப்பியன் கடல்",
+        "அல்போர்சு மலைத்தொடர்"
+      ]
+    },
+    "name_1:ru": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "Восемь райских садов",
+        "Башня Жертвы",
+        "Место огня"
+      ]
+    },
+    "nat_name": {
+      "count": 3,
+      "persian_value_count": 2,
+      "examples": [
+        "سد بیدواز",
+        "چوغا سر خر",
+        "Gatband"
+      ]
+    },
+    "payment:cash": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "place_of_worship": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "church",
+        "imamzadeh",
+        "wayside_shrine"
+      ]
+    },
+    "playground": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "roundabout"
+      ]
+    },
+    "playground:theme": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "playground"
+      ]
+    },
+    "power": {
+      "count": 3,
+      "persian_value_count": 1,
+      "examples": [
+        "expert",
+        "☫",
+        "پروژکتور مشهد"
+      ]
+    },
+    "reg_name": {
+      "count": 3,
+      "persian_value_count": 2,
+      "examples": [
+        "تپه ممه",
+        "گوجریه",
+        "Mohammadabad (Kharah Rud or Kharah Chai)"
+      ]
+    },
+    "roof:shape": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "pyramidal",
+        "dome",
+        "round"
+      ]
+    },
+    "spring": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "drinking_water"
+      ]
+    },
+    "step_count": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "4"
+      ]
+    },
+    "summit:cross": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "yes",
+        "no"
+      ]
+    },
+    "trees": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "olive_trees",
+        "barberry",
+        "date_palms"
+      ]
+    },
+    "water_characteristic": {
+      "count": 3,
+      "persian_value_count": 0,
+      "examples": [
+        "mineral",
+        "gaseous"
+      ]
+    },
+    "addr:place": {
+      "count": 2,
+      "persian_value_count": 2,
+      "examples": [
+        "لرد",
+        "استان گلستان"
+      ]
+    },
+    "addr:state": {
+      "count": 2,
+      "persian_value_count": 2,
+      "examples": [
+        "اصفهان"
+      ]
+    },
+    "alt_name:azb": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "اۇرمیه گؤلو",
+        "بصره کؤرفزی"
+      ]
+    },
+    "alt_name:ckb": {
+      "count": 2,
+      "persian_value_count": 2,
+      "examples": [
+        "کەنداوی فارس",
+        "زێی گچکە"
+      ]
+    },
+    "alt_name:cs": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Dašte Lút",
+        "dašt-e Kavír"
+      ]
+    },
+    "alt_name:eo": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Kaspia Maro",
+        "La Araba Golfo"
+      ]
+    },
+    "alt_name:fr": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Chott-el-Arab",
+        "Le golfe Arabe"
+      ]
+    },
+    "alt_name:hr": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Urmijsko jezero",
+        "Arapski zaljev"
+      ]
+    },
+    "alt_name:io": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Kaspia Maro",
+        "La Araba Golfo"
+      ]
+    },
+    "alt_name:ku": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Şet el-Ereb",
+        "Kendava Erebî"
+      ]
+    },
+    "alt_name:ml": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "ചിത്ഗർ തടാകം",
+        "ബുമൂസ ദ്വീപ്"
+      ]
+    },
+    "alt_name:pt": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Forte de Nossa Senhora da Conceição de Ormuz",
+        "O golfo arábico"
+      ]
+    },
+    "alt_name:ur": {
+      "count": 2,
+      "persian_value_count": 2,
+      "examples": [
+        "خلیج عربی",
+        "زیارت"
+      ]
+    },
+    "alt_name_1": {
+      "count": 2,
+      "persian_value_count": 2,
+      "examples": [
+        "سنبران",
+        "خوان کهار"
+      ]
+    },
+    "alt_name_2": {
+      "count": 2,
+      "persian_value_count": 2,
+      "examples": [
+        "فارورگان",
+        "دهکده صخره‌ای کندوان"
+      ]
+    },
+    "bench": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "cave:size": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "medium"
+      ]
+    },
+    "communication:frequency": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "460475"
+      ]
+    },
+    "contact:phone": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "09192930829",
+        "+989170769003"
+      ]
+    },
+    "contact:website": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "https://instagram.com/hamed.barkhordarzade"
+      ]
+    },
+    "description:ru": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Красный пляж на острове Хормоз — известный как «Остров Радуги» благодаря своим ярким, разноцветным пейзажам — славится сверкающим красным песком, образованным из железосодержащей почвы. Яркая красная береговая линия и разноцветные холмы делают это место у",
+        "Качающиеся минареты"
+      ]
+    },
+    "drinking_water:legal": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "no",
+        "yes"
+      ]
+    },
+    "fountain": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "water",
+        "drinking_fountain"
+      ]
+    },
+    "free_flying:guest-guidelines": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "free_flying:rigid": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "free_flying:site_orientation": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "SE,S,SW",
+        "E,SE,S,SW,W"
+      ]
+    },
+    "free_flying:tandem": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "full_name": {
+      "count": 2,
+      "persian_value_count": 2,
+      "examples": [
+        "محمد رسول الله اقلید",
+        "یخچال صاحب الزمان"
+      ]
+    },
+    "garden:style": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "persian",
+        "walled_garden"
+      ]
+    },
+    "garden:type": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "botanical",
+        "community"
+      ]
+    },
+    "genus:wikidata": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Q312094",
+        "Q146911"
+      ]
+    },
+    "geoglyph:language": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "persian"
+      ]
+    },
+    "golf": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "bunker"
+      ]
+    },
+    "importance": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "international",
+        "national"
+      ]
+    },
+    "int_name:en": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Gulf of Iran;Persian Gulf",
+        "Kūh-e Nāy Band"
+      ]
+    },
+    "is_in:city": {
+      "count": 2,
+      "persian_value_count": 1,
+      "examples": [
+        "اردبیل",
+        "borujerd"
+      ]
+    },
+    "is_in:county": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Golbahar",
+        "Osku"
+      ]
+    },
+    "memorial": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "tomb",
+        "stone"
+      ]
+    },
+    "mobile": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "+98 939 888 82 01",
+        "09013311352"
+      ]
+    },
+    "motor_vehicle": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "no"
+      ]
+    },
+    "name:arz": {
+      "count": 2,
+      "persian_value_count": 1,
+      "examples": [
+        "شط العرب",
+        "الخليج العربى"
+      ]
+    },
+    "name:br": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Mor Kaspia",
+        "Mor Oman"
+      ]
+    },
+    "name:fa-Latn": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Mehrpadin",
+        "Shiyākūh"
+      ]
+    },
+    "name:gl": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Monte Damavand",
+        "Persépole"
+      ]
+    },
+    "name:io": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Kaspia",
+        "Persiana gulfo"
+      ]
+    },
+    "name:is": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Kaspíahaf",
+        "Persaflói"
+      ]
+    },
+    "name:kmr": {
+      "count": 2,
+      "persian_value_count": 2,
+      "examples": [
+        "دەریایا قەزوینێ",
+        "زێیێ بچووک"
+      ]
+    },
+    "name:ks": {
+      "count": 2,
+      "persian_value_count": 2,
+      "examples": [
+        "داغ تندی",
+        "تفتان"
+      ]
+    },
+    "name:mr": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "कॅस्पियन समुद्र",
+        "माउंट दमावंद"
+      ]
+    },
+    "name:ms": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Laut Kaspia",
+        "Teluk Parsi"
+      ]
+    },
+    "name:ota": {
+      "count": 2,
+      "persian_value_count": 2,
+      "examples": [
+        "خزر دنیزی",
+        "تفتان"
+      ]
+    },
+    "name:pa": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "ਸ਼ਤ ਅਲ-ਅਰਬ",
+        "ਕੈਸਪੀਅਨ ਸਮੁੰਦਰ"
+      ]
+    },
+    "name:sw": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Shatt al Arab",
+        "Ghuba ya Uajemi"
+      ]
+    },
+    "name:syc": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "ܝܡܐ ܕܐܝܒܪܝܐ",
+        "ܙܒܐ"
+      ]
+    },
+    "note:en": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "very rough extrapolation",
+        "Not an official stairs. but great view over the old town"
+      ]
+    },
+    "payment:cards": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "payment:credit_cards": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "place_of_worship:type": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "dakhma"
+      ]
+    },
+    "produce": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "fish",
+        "date"
+      ]
+    },
+    "product": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "sewage"
+      ]
+    },
+    "ref:sci": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "812022",
+        "384811"
+      ]
+    },
+    "region:type": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "mountain_area"
+      ]
+    },
+    "roof:colour": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "cyan",
+        "#D4A04C"
+      ]
+    },
+    "roof:material": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "brick"
+      ]
+    },
+    "segregated": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "no",
+        "yes"
+      ]
+    },
+    "service_times": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "24/7",
+        "opening_hours=24/7"
+      ]
+    },
+    "short_name:cs": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Hormuz",
+        "Kohrúd"
+      ]
+    },
+    "sidewalk": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "both"
+      ]
+    },
+    "source:name:oc": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "ieo-bdtopoc"
+      ]
+    },
+    "sqkm": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "371000",
+        "235000"
+      ]
+    },
+    "taxon": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Platanus",
+        "Arecaceae"
+      ]
+    },
+    "tower:type": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "minaret"
+      ]
+    },
+    "usage": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "main",
+        "spillway"
+      ]
+    },
+    "website:tickets": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "http://www.wwl.ir/",
+        "https://www.wwl.ir/"
+      ]
+    },
+    "whc:name": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "The Persian Garden",
+        "Bisotun"
+      ]
+    },
+    "whc:website": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "http://whc.unesco.org/en/list/1372",
+        "http://whc.unesco.org/en/list/1222"
+      ]
+    },
+    "wikipedia:en": {
+      "count": 2,
+      "persian_value_count": 0,
+      "examples": [
+        "Darreh Khazineh",
+        "Old Bridge of Dezful"
+      ]
+    },
+    "FIXME": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Translation needs to be checked"
+      ]
+    },
+    "abandoned:man_made": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "bridge"
+      ]
+    },
+    "addr:city:en": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Lerd tourist village"
+      ]
+    },
+    "addr:county": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "زیرکوه"
+      ]
+    },
+    "addr:county:en": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Zirkuh"
+      ]
+    },
+    "addr:full": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Lerd tourist village, Shahroud district, Khalkhal county, Ardabil province, Iran"
+      ]
+    },
+    "addr:housename": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "خانه تاریخی"
+      ]
+    },
+    "addr:neighbourhood": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "بلوک دی"
+      ]
+    },
+    "addr:province:en": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "South Khorasan"
+      ]
+    },
+    "addr:suburb": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "مجموعه ویلایی اقاقیا"
+      ]
+    },
+    "addr:village:en": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Afin"
+      ]
+    },
+    "age": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "mature"
+      ]
+    },
+    "alt_name:bg": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Астрабадски залив"
+      ]
+    },
+    "alt_name:br": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Pleg-mor Oman"
+      ]
+    },
+    "alt_name:bs": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Arapski Zaljev"
+      ]
+    },
+    "alt_name:da": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Den Arabiske Golf"
+      ]
+    },
+    "alt_name:el": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Αραβικός Κόλπος"
+      ]
+    },
+    "alt_name:es": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "El Golfo Árabe"
+      ]
+    },
+    "alt_name:glk": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "کاسپينˇ گر"
+      ]
+    },
+    "alt_name:he": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "אל-חליג' אל-ערבי"
+      ]
+    },
+    "alt_name:hi": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "अरब की खाड़ी"
+      ]
+    },
+    "alt_name:hu": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Arab-öböl"
+      ]
+    },
+    "alt_name:hy": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Արաբական ծոց"
+      ]
+    },
+    "alt_name:ja": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "アラビア湾"
+      ]
+    },
+    "alt_name:ko": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "아라비아 만"
+      ]
+    },
+    "alt_name:lfn": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "el Golfo Arabe"
+      ]
+    },
+    "alt_name:nl": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "अरब खाडी"
+      ]
+    },
+    "alt_name:pl": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Zatoka Arabska"
+      ]
+    },
+    "alt_name:sh": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Hasankolijski zaljev;Astarabadski zaljev"
+      ]
+    },
+    "alt_name:sr": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Арапски залив"
+      ]
+    },
+    "alt_name:th": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "อ่าวอาหรับ"
+      ]
+    },
+    "alt_name:tr": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Arabi Körfezi"
+      ]
+    },
+    "alt_name:uk": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Горганська затока;Астрабадська затока"
+      ]
+    },
+    "alt_name:yi": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "די אַראַביש גאַלף"
+      ]
+    },
+    "alt_name:zh": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "阿拉伯湾"
+      ]
+    },
+    "architectural_style": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Timurid"
+      ]
+    },
+    "baby": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "no"
+      ]
+    },
+    "bath:open_air": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "no"
+      ]
+    },
+    "bin": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "bridge:support": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "pier"
+      ]
+    },
+    "building:levels:underground": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "1"
+      ]
+    },
+    "building:part": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "no"
+      ]
+    },
+    "buried:wikipedia": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "fa:ابوالحسن بیهقی"
+      ]
+    },
+    "capacity:disabled": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "3"
+      ]
+    },
+    "cash_in": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "cemetery": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "grave"
+      ]
+    },
+    "climbing:rock": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "granite"
+      ]
+    },
+    "code": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "رباط شرف"
+      ]
+    },
+    "construction": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "contact:facebook": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "https://www.facebook.com/dr.zaringhlm"
+      ]
+    },
+    "contact:mobile": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "+98917 373 5236"
+      ]
+    },
+    "contact:tripadvisor": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "https://tripadvisor.com/Attraction_Review-g19393184-d20281230-Reviews-Silver_and_Red_Beach-Hormoz_Hormoz_Hormozgan_Province.html"
+      ]
+    },
+    "craft": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "photographer"
+      ]
+    },
+    "crown_type": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "c"
+      ]
+    },
+    "delivery": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "no"
+      ]
+    },
+    "description:ar": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "\"شاطئ ريد في جزيرة هرمز، المعروفة باسم \"جزيرة قوس قزح\" بسبب مناظرها الطبيعية متعددة الألوان، يتميز برماله الحمراء اللامعة الناتجة عن التربة الغنية بالحديد. الساحل الأحمر اللافت للانتباه والتلال الملونة يجعلان هذه المنطقة معلمًا طبيعيًا فريدًا لا يُنسى.\""
+      ]
+    },
+    "description:bn": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "\"হরমুজ দ্বীপের রেড বিচ—যা তার উজ্জ্বল, বহুরঙা প্রাকৃতিক দৃশ্যের জন্য \"রেইনবো আইল্যান্ড\" নামে পরিচিত—লোহা সমৃদ্ধ মাটি থেকে সৃষ্ট উজ্জ্বল লাল বালির বৈশিষ্ট্য ধারণ করে। চোখে পড়ার মতো লাল উপকূল ও রঙিন পাহাড় এই স্থানটিকে একটি অনন্য এবং অবিস্মরণীয় প্রাকৃতিক"
+      ]
+    },
+    "description:de": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Der Red Beach auf der Insel Hormuz – bekannt als „Regenbogeninsel“ wegen ihrer lebendigen, mehrfarbigen Landschaften – zeichnet sich durch leuchtend roten Sand aus eisenreichem Boden aus. Die markante rote Küste und die bunten Hügel machen dies zu einer e"
+      ]
+    },
+    "description:es": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "\"La Playa Roja en la Isla de Hormuz—conocida como la \"Isla Arcoíris\" por sus vibrantes paisajes multicolores—presenta arena roja brillante procedente de suelos ricos en hierro. La llamativa costa roja y las colinas coloridas convierten este lugar en una a"
+      ]
+    },
+    "description:fr": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "La plage rouge sur l’île d’Hormuz—surnommée « l’île Arc-en-ciel » pour ses paysages colorés et vibrants—présente un sable rouge brillant issu d’un sol riche en fer. Le rivage rouge saisissant et les collines colorées en font une attraction naturelle uniqu"
+      ]
+    },
+    "description:hi": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "\"हॉरमूज द्वीप पर रेड बीच—जिसे अपने चमकीले, बहुरंगी परिदृश्यों के लिए \"रेनबो आइलैंड\" के नाम से भी जाना जाता है—आयरन युक्त मिट्टी से बने चमकीले लाल रेत का विशेष आकर्षण है। आकर्षक लाल किनारा और रंग-बिरंगी पहाड़ियाँ इसे एक अनूठा और अविस्मरणीय प्राकृतिक आकर्षण"
+      ]
+    },
+    "description:id": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "\"Pantai Merah di Pulau Hormuz—dikenal sebagai \"Pulau Pelangi\" karena lanskapnya yang penuh warna—memiliki pasir merah yang cemerlang dari tanah yang kaya zat besi. Garis pantai merah yang mencolok dan perbukitan warna-warni menjadikan tempat ini sebagai d"
+      ]
+    },
+    "description:ja": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "ホルムズ島のレッドビーチは、多色の鮮やかな景観から「虹の島」として知られており、鉄分を多く含む土壌からできた輝く赤い砂が特徴です。印象的な赤い海岸線とカラフルな丘が、この地を他にはない忘れられない自然の名所にしています。"
+      ]
+    },
+    "description:ko": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "호르무즈 섬의 레드 비치는 다채로운 풍경으로 인해 '무지개 섬'으로 불리며, 철분이 풍부한 토양에서 생긴 빛나는 붉은 모래가 특징입니다. 눈길을 끄는 붉은 해안선과 화려한 언덕들이 이곳을 독특하고 잊을 수 없는 자연 명소로 만듭니다."
+      ]
+    },
+    "description:pt": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "\"A Praia Vermelha na Ilha de Hormuz—conhecida como \"Ilha do Arco-Íris\" por suas paisagens vibrantes e multicoloridas—apresenta areia vermelha brilhante proveniente de solo rico em ferro. A marcante linha costeira vermelha e as colinas coloridas tornam est"
+      ]
+    },
+    "description:ur": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "\"ہرمز جزیرے پر ریڈ بیچ—جو اپنے رنگارنگ اور متحرک مناظر کی وجہ سے \"رینبو آئی لینڈ\" کے نام سے مشہور ہے—آئرن سے بھرپور مٹی سے بنی چمکدار سرخ ریت کی خصوصیت رکھتی ہے۔ چونکا دینے والا سرخ ساحل اور رنگ برنگے پہاڑ اس جگہ کو ایک منفرد اور ناقابل فراموش قدرتی مقام"
+      ]
+    },
+    "description:zh": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "霍尔木兹岛的红沙滩——因其色彩斑斓的景观而被称为“彩虹岛”——以富含铁质的土壤形成的闪亮红沙为特色。醒目的红色海岸线和色彩缤纷的山丘，使这里成为一处独特而难忘的自然景点。"
+      ]
+    },
+    "destination": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "الخليج العربي"
+      ]
+    },
+    "diameter_crown": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "15.7"
+      ]
+    },
+    "drinkable": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "drinking_water:seasonal": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "electrified": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "no"
+      ]
+    },
+    "end_date": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "1971"
+      ]
+    },
+    "est_height": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "5"
+      ]
+    },
+    "est_length": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "52"
+      ]
+    },
+    "female": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "only"
+      ]
+    },
+    "field": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "flood_prone": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "fortification_type": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "earthworks"
+      ]
+    },
+    "free_flying:official": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "from": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "خیابان مطلب نژاد بعد از اتمام پل بزرگراه"
+      ]
+    },
+    "gauge": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "1435"
+      ]
+    },
+    "genus:en": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "cupressus sempervirens"
+      ]
+    },
+    "genus:fa": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "کاکتوس"
+      ]
+    },
+    "genus:wikipedia": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "fa:سرو (سرده)"
+      ]
+    },
+    "health": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "5"
+      ]
+    },
+    "healthcare:speciality": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "plastic_surgery;otolaryngology"
+      ]
+    },
+    "heritage:since": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "2016"
+      ]
+    },
+    "hunting": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "no"
+      ]
+    },
+    "image_2": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "http://media.shabestan.ir/Original/archive/9-1-1391/IMAGE634685665871343545.jpg"
+      ]
+    },
+    "indoor": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "information": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "int_name:fr": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Golfe d’Iran;Golfe Persique"
+      ]
+    },
+    "internet_access:fee": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "customers"
+      ]
+    },
+    "internet_access:ssid": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "insageram-mohammad.mahdavi1"
+      ]
+    },
+    "is_in:mountain_range": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Elburz"
+      ]
+    },
+    "is_in:neighbourhood": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Block D"
+      ]
+    },
+    "is_in:state_code": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "IR-18"
+      ]
+    },
+    "is_in:suburb": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "مجموعه ویلایی اقاقیا"
+      ]
+    },
+    "iucn_level": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "IV"
+      ]
+    },
+    "lanes": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "۲"
+      ]
+    },
+    "lifeguard": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "loc_name:en": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Hasalkot"
+      ]
+    },
+    "loc_name:fa": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "قلعه مک شور"
+      ]
+    },
+    "loc_name:ur": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "تپتان"
+      ]
+    },
+    "location": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "outdoor"
+      ]
+    },
+    "long_name": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "کوہ تفقان"
+      ]
+    },
+    "long_name:ar": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "جبل تفتان"
+      ]
+    },
+    "long_name:fa": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "کوه تفتان"
+      ]
+    },
+    "long_name:ur": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "کوہ تفقان"
+      ]
+    },
+    "magic_wand": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "male": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "only"
+      ]
+    },
+    "man_made_1": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "map": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "maxspeed:advisory": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "40"
+      ]
+    },
+    "maxwidth": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "52 nautical miles"
+      ]
+    },
+    "min_age": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "8"
+      ]
+    },
+    "monument": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "tree"
+      ]
+    },
+    "multipolygon": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "name:af": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Kaspiese See"
+      ]
+    },
+    "name:alt": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "چمن متحرک چملی"
+      ]
+    },
+    "name:ang": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Persian Gulf"
+      ]
+    },
+    "name:av": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Каспий ралъад"
+      ]
+    },
+    "name:avk": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Kaspa bira"
+      ]
+    },
+    "name:az-cyr": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Хәзәр дәнизи"
+      ]
+    },
+    "name:bar": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Kaspischs Meer"
+      ]
+    },
+    "name:bcl": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Salog Shatt-al-Arab"
+      ]
+    },
+    "name:be-tarask": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Касьпійскае мора"
+      ]
+    },
+    "name:bs": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Perzijski Zaljev"
+      ]
+    },
+    "name:ce": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Каспий-хӀорд"
+      ]
+    },
+    "name:en_1": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Amir Chaqmaq Arcades"
+      ]
+    },
+    "name:fa:pronunciation": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Deraxt-e Čenār-e Kohansāl-e Tafreš"
+      ]
+    },
+    "name:fo": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Kaspiska havið"
+      ]
+    },
+    "name:frr": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Schatt al-Arab"
+      ]
+    },
+    "name:fur": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Mâr Caspi"
+      ]
+    },
+    "name:ga": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Muir Chaisp"
+      ]
+    },
+    "name:gan": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "裡海"
+      ]
+    },
+    "name:hak": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Lî-hói"
+      ]
+    },
+    "name:jbo": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "kaspi,an. xamsi"
+      ]
+    },
+    "name:kaa": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Kaspiy teńizi"
+      ]
+    },
+    "name:kab": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Ilel n Kaspi"
+      ]
+    },
+    "name:kbd": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Хы Къарс"
+      ]
+    },
+    "name:kk-Arab": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "كاسپىيي تەڭىزى"
+      ]
+    },
+    "name:kn": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "ಕ್ಯಾಸ್ಪಿಯನ್ ಸಮುದ್ರ"
+      ]
+    },
+    "name:ku-Arab": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "دەریایا قەزوینێ"
+      ]
+    },
+    "name:lb": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Kaspescht Mier"
+      ]
+    },
+    "name:lbe": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Каспи хьхьири"
+      ]
+    },
+    "name:lez": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Каспи гьуьл"
+      ]
+    },
+    "name:lfn": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Mar Caspio"
+      ]
+    },
+    "name:lld": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Kuh-e-Ghal'eh (Ferdows)"
+      ]
+    },
+    "name:lrc": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "دریا خزر"
+      ]
+    },
+    "name:mg": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Shatt al-Arab"
+      ]
+    },
+    "name:nan": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Caspi Hái"
+      ]
+    },
+    "name:nds-nl": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Kaspiese Zee"
+      ]
+    },
+    "name:roa-rup": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Amarea Caspicâ"
+      ]
+    },
+    "name:rue": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Каспіцьке море"
+      ]
+    },
+    "name:rw": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Ikigobe cy'Abarabu"
+      ]
+    },
+    "name:sah": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Каспий байҕала"
+      ]
+    },
+    "name:scn": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Shatt al-Arab"
+      ]
+    },
+    "name:sd": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "شط العرب"
+      ]
+    },
+    "name:so": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Bada Qaswiin"
+      ]
+    },
+    "name:sq": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Liqeni Kas"
+      ]
+    },
+    "name:sr-Latn": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Ormuski moreuz"
+      ]
+    },
+    "name:te": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "ఖాస్పియన్ సముద్రం"
+      ]
+    },
+    "name:tl": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Dagat Caspian"
+      ]
+    },
+    "name:tly": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "دوال کوه"
+      ]
+    },
+    "name:ug": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Ghuba ya Arabia"
+      ]
+    },
+    "name:uz-cyr": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Каспий денгизи"
+      ]
+    },
+    "name:wuu": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "阿拉伯河"
+      ]
+    },
+    "name:xmf": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "შატ-ელ-არაბი"
+      ]
+    },
+    "name:yi": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "קאספישער ים"
+      ]
+    },
+    "name:yue": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "裏海"
+      ]
+    },
+    "name:zh_yue": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "阿剌伯河"
+      ]
+    },
+    "name_1": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "آب انبار برکه گِرد"
+      ]
+    },
+    "no": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "reservoir"
+      ]
+    },
+    "noexit": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "office": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "company"
+      ]
+    },
+    "official_name": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "کول‌تپه اهرنجان"
+      ]
+    },
+    "old_name:fa": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "دریای مازندران"
+      ]
+    },
+    "old_name:ru": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "полуостров Потёмкина"
+      ]
+    },
+    "opening_hours:covid19": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "off"
+      ]
+    },
+    "operator:short": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "TNC"
+      ]
+    },
+    "operator:wikidata": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Q1813186"
+      ]
+    },
+    "outdoor": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "outdoor_seating": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "parking": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "underground"
+      ]
+    },
+    "passable": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "no"
+      ]
+    },
+    "payment:coins": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "payment:easycard": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "payment:electronic_purses": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "payment:nfc": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "payment:telephone_cards": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "peak": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "hill"
+      ]
+    },
+    "petroglyph": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "relief"
+      ]
+    },
+    "phone:mobile": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "09179245278"
+      ]
+    },
+    "picture": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "http://images.kojaro.com/2015/12/TITR-4AAS1.jpg"
+      ]
+    },
+    "pipeline": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "penstock"
+      ]
+    },
+    "protected": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "railway": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "rail"
+      ]
+    },
+    "ref:IR:heritage": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "2182"
+      ]
+    },
+    "ref:ir_national_heritage": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "29945"
+      ]
+    },
+    "ref:iranian_heritage": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "2030"
+      ]
+    },
+    "reg_name:fa": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "محمدآباد (خَرَه رود یا خَرّه چای)"
+      ]
+    },
+    "reservation": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "no"
+      ]
+    },
+    "roof:height": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "12"
+      ]
+    },
+    "route": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "road"
+      ]
+    },
+    "ruin_type": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "bath"
+      ]
+    },
+    "ruined:man_made": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "bridge"
+      ]
+    },
+    "seamark:beacon_lateral:category": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "starboard"
+      ]
+    },
+    "seamark:beacon_lateral:colour": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "green"
+      ]
+    },
+    "seamark:beacon_lateral:shape": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "pole"
+      ]
+    },
+    "seamark:beacon_lateral:system": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "iala-a"
+      ]
+    },
+    "seamark:light:1:character": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Fl"
+      ]
+    },
+    "seamark:light:1:colour": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "green"
+      ]
+    },
+    "seamark:light:1:group": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "1"
+      ]
+    },
+    "seamark:light:1:height": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "12"
+      ]
+    },
+    "seamark:light:1:period": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "5"
+      ]
+    },
+    "seamark:light:1:range": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "10"
+      ]
+    },
+    "seamark:light:1:sector_end": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "360"
+      ]
+    },
+    "seamark:light:1:sector_start": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "0"
+      ]
+    },
+    "seamark:light:1:sequence": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "0.5+(4.5)"
+      ]
+    },
+    "seamark:name": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Bandar-e Anzali new west mole light"
+      ]
+    },
+    "service:bicycle:pump": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "short_name": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Hormuz"
+      ]
+    },
+    "site_name": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "www.jazan.ir/shirband"
+      ]
+    },
+    "size": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "large"
+      ]
+    },
+    "smoking": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "source:date": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "2026-01"
+      ]
+    },
+    "source:heritage": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "http://www.unesco.org/new/en/member-states/single-view/news/the_marshlands_of_iraq_inscribed_on_unescos_world_heritag/"
+      ]
+    },
+    "source:int_name": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Limits of Oceans and Seas (IHO S-23), 3rd ed."
+      ]
+    },
+    "source_ref": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "http://whc.unesco.org/en/list/1222"
+      ]
+    },
+    "species:es": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "Ciprés Mediterráneo"
+      ]
+    },
+    "summit:register": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "local"
+      ]
+    },
+    "takeaway": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "no"
+      ]
+    },
+    "tents": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "time": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "2018-09-17T07:51:40Z"
+      ]
+    },
+    "to": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "رسیدن دو مسیر جدا به خیابان مطلب نژاد به سمت مقصد میدان نامجو"
+      ]
+    },
+    "toilets": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "tower:construction": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "brick"
+      ]
+    },
+    "tree_form": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "natural"
+      ]
+    },
+    "valley": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "gorge"
+      ]
+    },
+    "via": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "خیابان مطلب نژاد و کنار گذر اتوبان از چهارراه نظام آباد به;محض امدن در خیابان مطلب نژاد به سمت میدان نامجو"
+      ]
+    },
+    "watermill:part": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "penstock"
+      ]
+    },
+    "wikipedia:fa": {
+      "count": 1,
+      "persian_value_count": 1,
+      "examples": [
+        "باغ و عمارت عین‌الدوله"
+      ]
+    },
+    "wood:density": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "dense"
+      ]
+    },
+    "wreck:type": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "ship"
+      ]
+    },
+    "wreck:visible_at_high_tide": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    },
+    "wreck:visible_at_low_tide": {
+      "count": 1,
+      "persian_value_count": 0,
+      "examples": [
+        "yes"
+      ]
+    }
+  }
+}

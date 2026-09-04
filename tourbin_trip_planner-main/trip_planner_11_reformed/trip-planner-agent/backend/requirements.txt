@@ -1,0 +1,26 @@
+# Web application
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
+
+# Models, settings, and agent providers
+pydantic==2.13.4
+pydantic-settings==2.14.2
+pydantic-ai-slim[anthropic,openai]==2.22.0
+
+# Graph, configuration, HTTP, and calendar support
+neo4j==6.2.0
+python-dotenv==1.2.2
+httpx==0.28.1
+jdatetime==6.1.0
+tzdata==2026.3
+
+# Streaming GeoJSON ETL; does not load the feature collection into RAM
+ijson==3.5.1
+
+# Memory layer (short-term / long-term preferences / reasoning traces)
+# Pin the tested commit so fresh installations do not drift with GitHub main.
+neo4j-agent-memory[anthropic,fuzzy,openai] @ git+https://github.com/neo4j-labs/agent-memory.git@ac86a8ff01354e6b9c4d1b17089fba89d42dcf2b
+
+# Optional: only needed if you run the ETL against a live ES cluster
+# instead of a JSON export
+elasticsearch==8.19.3
