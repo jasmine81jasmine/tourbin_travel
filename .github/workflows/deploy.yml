@@ -1,0 +1,95 @@
+name: Deploy Tourbin Trip Planner
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch: {}   # lets you also trigger a deploy manually from the Actions tab
+
+jobs:
+  # ---------------------------------------------------------------------
+  # 1) Build check: tries to build the Docker image right here on GitHub's
+  #    runner, BEFORE touching your server. If your Dockerfile or
+  #    requirements.txt are broken, this fails fast with a clean log and
+  #    the deploy job below never runs -- your server is never touched
+  #    by a broken build.
+  # ---------------------------------------------------------------------
+  build-check:
+    name: Build check (Docker image)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image (no push, just verify it builds)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+          tags: tourbin-backend:ci-check
+
+  # ---------------------------------------------------------------------
+  # 2) Deploy: only runs if build-check succeeded. SSHs into your server,
+  #    pulls the latest code, rebuilds, restarts, and waits for /health
+  #    to report healthy. Every line is echoed to the GitHub Actions log
+  #    AND appended to a timestamped file on the server for later
+  #    debugging (/var/log/tourbin/deploy-*.log).
+  # ---------------------------------------------------------------------
+  deploy:
+    name: Deploy to server
+    needs: build-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script_stop: true
+          script: |
+            set -e
+            mkdir -p /var/log/tourbin
+            LOGFILE="/var/log/tourbin/deploy-$(date +%Y%m%d-%H%M%S).log"
+            {
+              echo "=== Deploy started: $(date -u) ==="
+
+              cd /opt/tourbin/app/tourbin_trip_planner-main/trip_planner_11_reformed/trip-planner-agent
+
+              echo "--- git pull ---"
+              git fetch --all
+              git reset --hard origin/main
+
+              echo "--- docker compose build ---"
+              docker compose build
+
+              echo "--- docker compose up -d ---"
+              docker compose up -d
+
+              echo "--- waiting for /health ---"
+              healthy=""
+              for i in $(seq 1 15); do
+                if curl -sf http://localhost:8000/health | grep -q '"status":"healthy"'; then
+                  healthy=1
+                  echo "Backend is healthy."
+                  break
+                fi
+                echo "Waiting for backend... attempt $i/15"
+                sleep 5
+              done
+
+              if [ -z "$healthy" ]; then
+                echo "!!! HEALTH CHECK FAILED -- last 150 lines of backend logs: !!!"
+                docker compose logs --tail=150 backend
+                exit 1
+              fi
+
+              echo "--- pruning old unused images (keep disk clean) ---"
+              docker image prune -f
+
+              echo "=== Deploy finished: $(date -u) ==="
+            } 2>&1 | tee -a "$LOGFILE"
