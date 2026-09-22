@@ -26,8 +26,8 @@ jobs:
       - name: Build backend image (no push, just verify it builds)
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: backend/Dockerfile
+          context: ./tourbin_trip_planner-main/trip_planner_11_reformed/trip-planner-agent
+          file: ./tourbin_trip_planner-main/trip_planner_11_reformed/trip-planner-agent/backend/Dockerfile
           push: false
           tags: tourbin-backend:ci-check
 
