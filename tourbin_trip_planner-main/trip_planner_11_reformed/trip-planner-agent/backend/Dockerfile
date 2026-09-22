@@ -5,7 +5,9 @@
 FROM python:3.11-slim
 
 # Runtime deps: curl is used by the container HEALTHCHECK below.
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+# git is required because requirements.txt installs a package
+# (neo4j-agent-memory) directly from a GitHub URL.
+RUN apt-get update && apt-get install -y --no-install-recommends curl git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -17,6 +19,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 # Now copy the actual app code.
 COPY index.html ./index.html
+COPY export.geojson ./export.geojson
 COPY backend ./backend
 
 WORKDIR /app/backend
