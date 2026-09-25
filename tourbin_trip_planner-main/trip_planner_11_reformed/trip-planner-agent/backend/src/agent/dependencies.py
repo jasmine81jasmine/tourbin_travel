@@ -19,6 +19,7 @@ class AgentDeps(MemoryDependency):
     user_id: str = "anonymous"
     current_query: str | None = None
     travel_goal: TravelGoal | None = None
+    turn_action: str = "plan"
     maps: NeshanClient | None = None
     # Written by tool_build_trip_map (see src/agent/tools.py) when the agent
     # finalizes a concrete itinerary. Read back by the /api/chat route after
@@ -35,6 +36,7 @@ class AgentDeps(MemoryDependency):
         user_id: str = "anonymous",
         current_query: str | None = None,
         travel_goal: TravelGoal | None = None,
+        turn_action: str = "plan",
         maps: NeshanClient | None = None,
     ) -> "AgentDeps":
         return cls(
@@ -44,5 +46,6 @@ class AgentDeps(MemoryDependency):
             user_id=user_id,
             current_query=current_query,
             travel_goal=travel_goal,
+            turn_action=turn_action,
             maps=maps,
         )

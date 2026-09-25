@@ -17,6 +17,7 @@ from src.agent.description_format import format_descriptions
 from src.agent.feasibility import ground_route_text, screen_short_trip
 from src.agent.goals import TravelGoal
 from src.agent.tools import build_trip_map
+from src.agent.turns import TurnDecision, apply_goal_updates, understand_turn
 from src.api.schemas import ChatRequest, ChatResponse, Itinerary, SessionResponse
 from src.memory import linking
 from src.memory.client import get_embedding_provider, get_memory_client
@@ -231,8 +232,10 @@ async def chat(
                 user_id=user_id,
             )
 
+    decision = (TurnDecision("chat") if _is_only_greeting(request.message)
+                else await understand_turn(request.message, current_goal, recent_transcript))
     travel_goal = current_goal
-    if not (_is_only_greeting(request.message) and current_goal is None):
+    if decision.action == "plan":
         try:
             travel_goal = await update_travel_goal(
                 current_goal,
@@ -247,12 +250,13 @@ async def chat(
                     semantic_query=request.message,
                     revision=1,
                 )
-        if graph_repo is not None and travel_goal is not None:
-            await graph_repo.upsert_travel_goal(
-                session_id,
-                user_id,
-                travel_goal.model_dump(),
-            )
+    travel_goal = apply_goal_updates(travel_goal, decision.updates)
+    if graph_repo is not None and travel_goal is not None and (decision.action == "plan" or decision.updates):
+        await graph_repo.upsert_travel_goal(
+            session_id,
+            user_id,
+            travel_goal.model_dump(),
+        )
 
     deps = AgentDeps.create(
         memory=memory_client,
@@ -261,6 +265,7 @@ async def chat(
         user_id=user_id,
         current_query=request.message,
         travel_goal=travel_goal,
+        turn_action=decision.action,
         maps=get_neshan_client(),
     )
 
@@ -300,7 +305,7 @@ async def chat(
                 itinerary = Itinerary.model_validate(deps.itinerary_result)
             except Exception:
                 logger.warning("Could not serialize itinerary_result", exc_info=True)
-        elif not _is_only_greeting(request.message):
+        elif decision.action == "plan":
             try:
                 fallback_stops = linking.extract_finalized_destination_coords(result.new_messages())
                 # Use the same road-routing tool as a normal plan, not a
@@ -316,11 +321,11 @@ async def chat(
             except Exception:
                 logger.warning("Could not build fallback itinerary", exc_info=True)
 
-        checked = None if _is_only_greeting(request.message) else await screen_short_trip(
+        checked = (await screen_short_trip(
             travel_goal, deps.maps, result.new_messages(), reply_text, itinerary,
             description_formatter=lambda rows: format_descriptions(rows, travel_goal),
             graph=graph_repo,
-        )
+        ) if decision.action == "plan" else None)
         if checked is not None:
             reply_text, verified_route = checked
             if verified_route is not None:
@@ -341,7 +346,7 @@ async def chat(
                 except Exception:
                     logger.warning("Could not validate return leg", exc_info=True)
                     itinerary = None
-        elif itinerary is not None:
+        elif itinerary is not None and decision.action == "plan":
             reply_text = ground_route_text(reply_text, itinerary)
 
         if memory_client is not None:
