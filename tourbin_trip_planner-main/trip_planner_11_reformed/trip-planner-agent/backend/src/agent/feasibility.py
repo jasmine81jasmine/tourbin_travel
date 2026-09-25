@@ -359,7 +359,10 @@ async def _discover_multiday_plans(goal: TravelGoal, maps: Any, graph: Any, mess
 async def _render_multiday_plans(
     goal: TravelGoal, plans: list[dict], rows: list[dict], graph: Any,
     formatter: Callable[[dict[str, dict]], Awaitable[dict[str, str]]] | None,
+    map_itineraries: list[dict] | None = None,
 ) -> tuple[str, dict | None]:
+    if map_itineraries is not None:
+        map_itineraries.extend(plans)
     names = {stop["name"] for plan in plans for stop in plan["stops"]}
     data = [next((row for row in rows if row.get("name") == name), {"name": name}) for name in names]
     cards = await _destination_descriptions(data, graph, formatter)
@@ -400,6 +403,7 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
                             itinerary: Any = None,
                             description_formatter: Callable[[dict[str, dict]], Awaitable[dict[str, str]]] | None = None,
                             graph: Any = None,
+                            map_itineraries: list[dict] | None = None,
                             ) -> tuple[str, dict | None] | None:
     """Return a grounded replacement when the model proposes a short trip.
 
@@ -451,7 +455,8 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
                 if plan:
                     plans.append(plan)
         if plans:
-            return await _render_multiday_plans(goal, plans, candidates, graph, description_formatter)
+            return await _render_multiday_plans(goal, plans, candidates, graph, description_formatter,
+                                                map_itineraries)
 
     if itinerary is not None and len(itinerary.stops) > 1 and not _wants_one_place(goal) and _trip_days(goal) == 1:
         if origin is not None and maps is not None and maps.enabled:
@@ -459,7 +464,8 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
                     for stop in itinerary.stops]
             plan = await _route_plan(maps, origin, origin_name, rows, budget, optimize=False)
             if plan:
-                return await _render_multiday_plans(goal, [plan], candidates, graph, description_formatter)
+                return await _render_multiday_plans(goal, [plan], candidates, graph, description_formatter,
+                                                    map_itineraries)
         return ("مسیر ترکیبی این توقف‌ها با فرصت یک‌روزه سازگار نیست؛ گزینه‌های نزدیک‌تر را بررسی می‌کنم.", None)
 
     feasible = []
@@ -525,6 +531,17 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
             f"{outbound['duration_hours']} ساعت؛ برگشت {inbound['distance_km']} کیلومتر، "
             f"{inbound['duration_hours']} ساعت؛ مجموع {drive:.2f} ساعت."
         )
+        if map_itineraries is not None:
+            map_itineraries.append({
+                "origin": {"name": origin_name, "latitude": origin[0], "longitude": origin[1]},
+                "stops": [{"order": 1, "name": row["name"], "latitude": row["latitude"],
+                           "longitude": row["longitude"], "leg_distance_km_from_previous": outbound["distance_km"],
+                           "leg_duration_hours_from_previous": outbound["duration_hours"]}],
+                "return_leg": {"leg_distance_km_from_previous": inbound["distance_km"],
+                               "leg_duration_hours_from_previous": inbound["duration_hours"]},
+                "total_distance_km": round(outbound["distance_km"] + inbound["distance_km"], 1),
+                "total_duration_hours": round(drive, 2), "round_trip": True,
+            })
     if _trip_days(goal) == 1:
         lines.append("**📅 الگوی یک‌روزه:** حرکت صبح، بازدید و استراحت در مقصد انتخابی، بازگشت تا پایان روز.")
     lines.append("**🚗 نکتهٔ مسیر:** زمان‌ها بدون ترافیک و جدا از بازدید و استراحت‌اند؛ شرایط روز سفر را بررسی کنید.")

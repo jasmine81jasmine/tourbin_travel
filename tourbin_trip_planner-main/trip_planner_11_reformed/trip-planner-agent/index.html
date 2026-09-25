@@ -134,6 +134,17 @@
       cursor: pointer;
     }
     .view-map-btn:hover { background: var(--mist); }
+    .map-return-btn {
+      margin-top: 14px;
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--moss);
+      color: white;
+      font: 600 0.85rem 'Vazirmatn', sans-serif;
+      cursor: pointer;
+    }
+    .map-return-btn:hover { background: var(--forest); }
     .map-view {
       flex: 1;
       min-height: 0;
@@ -546,6 +557,7 @@
       <ul id="mapLegs"></ul>
       <p id="mapTotal"></p>
     </div>
+    <button class="map-return-btn" type="button" onclick="closeTripMap()">→ بازگشت به گفتگو و ادامهٔ همین جلسه</button>
   </section>
 
   <!-- Input -->
@@ -885,7 +897,16 @@
   }
 
   // ── Append message bubble ─────────────────────────────────────────
-  function addMessage(role, content, isError = false, itinerary = null) {
+  function makeMapButton(itinerary, label = '🗺️ دیدن برنامه روی نقشه') {
+    const button = document.createElement('button');
+    button.className = 'view-map-btn';
+    button.type = 'button';
+    button.textContent = label;
+    button.addEventListener('click', () => openTripMap(itinerary, button));
+    return button;
+  }
+
+  function addMessage(role, content, isError = false, itinerary = null, itineraries = []) {
     const wrapper = document.createElement('div');
     wrapper.className = `message ${role}`;
 
@@ -898,13 +919,26 @@
 
     if (role === 'bot' && !isError) {
       bubble.innerHTML = parseMarkdown(content);
-      if (hasMapItinerary(itinerary)) {
-        const button = document.createElement('button');
-        button.className = 'view-map-btn';
-        button.type = 'button';
-        button.textContent = '🗺️ دیدن برنامه روی نقشه';
-        button.addEventListener('click', () => openTripMap(itinerary, button));
-        bubble.appendChild(button);
+      const options = Array.isArray(itineraries) ? itineraries.filter(hasMapItinerary) : [];
+      if (options.length > 1) {
+        const optionHeadings = [...bubble.querySelectorAll('h4')]
+          .filter(heading => /گزینهٔ\s*[0-9۰-۹]+/.test(heading.textContent));
+        const planHeadings = [...bubble.querySelectorAll('h3')]
+          .filter(heading => /برنامهٔ\s*[0-9۰-۹]+/.test(heading.textContent));
+        const headings = optionHeadings.length === options.length ? optionHeadings :
+          planHeadings.length === options.length ? planHeadings : [];
+        options.forEach((route, index) => {
+          const button = makeMapButton(route, `🗺️ دیدن برنامهٔ ${index + 1} روی نقشه`);
+          if (headings[index]) {
+            headings[index].insertAdjacentElement('afterend', button);
+          } else {
+            bubble.appendChild(button);
+          }
+        });
+      } else if (hasMapItinerary(itinerary)) {
+        bubble.appendChild(makeMapButton(itinerary));
+      } else if (options.length === 1) {
+        bubble.appendChild(makeMapButton(options[0]));
       }
     } else {
       bubble.textContent = content;
@@ -990,7 +1024,7 @@
       sessionId = data.session_id;
       userId = data.user_id;
       setConnectionStatus(true);
-      addMessage('bot', data.reply || 'پاسخی دریافت نشد.', false, data.itinerary);
+      addMessage('bot', data.reply || 'پاسخی دریافت نشد.', false, data.itinerary, data.itineraries);
     } catch (err) {
       hideTyping();
       setConnectionStatus(false);

@@ -321,10 +321,12 @@ async def chat(
             except Exception:
                 logger.warning("Could not build fallback itinerary", exc_info=True)
 
+        map_itineraries: list[dict] = []
         checked = (await screen_short_trip(
             travel_goal, deps.maps, result.new_messages(), reply_text, itinerary,
             description_formatter=lambda rows: format_descriptions(rows, travel_goal),
             graph=graph_repo,
+            map_itineraries=map_itineraries,
         ) if decision.action == "plan" else None)
         if checked is not None:
             reply_text, verified_route = checked
@@ -410,7 +412,9 @@ async def chat(
             except Exception:
                 logger.exception("Failed to record/link reasoning trace (non-fatal)")
 
-        return ChatResponse(reply=reply_text, session_id=session_id, user_id=user_id, itinerary=itinerary)
+        return ChatResponse(reply=reply_text, session_id=session_id, user_id=user_id,
+                            itinerary=itinerary,
+                            itineraries=[Itinerary.model_validate(route) for route in map_itineraries])
     except ModelAPIError as e:
         logger.warning("LLM provider request failed: %s", e)
         raise HTTPException(

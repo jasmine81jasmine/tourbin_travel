@@ -68,6 +68,9 @@ class ChatResponse(BaseModel):
     # `session_id`, `user_id` are unaffected -- this is purely additional
     # data for a future map view.
     itinerary: Itinerary | None = None
+    # Independent options have their own map routes; a single `itinerary`
+    # cannot represent several alternatives without implying one joined trip.
+    itineraries: list[Itinerary] = Field(default_factory=list)
 
 
 class SessionResponse(BaseModel):

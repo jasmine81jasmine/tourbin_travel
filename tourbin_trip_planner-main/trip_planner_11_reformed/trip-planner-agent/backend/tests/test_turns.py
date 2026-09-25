@@ -92,3 +92,41 @@ async def test_chat_followup_does_not_run_plan_screen_or_rewrite_reply(monkeypat
     assert "گلابدره" in response.reply
     assert "برای پیشنهاد سفر کوتاه" not in response.reply
     assert response.itinerary is None
+
+
+@pytest.mark.asyncio
+async def test_chat_exposes_independent_map_routes_for_alternative_plans(monkeypatch):
+    route = importlib.import_module("src.api.routes.chat")
+
+    class FakeAgent:
+        async def run(self, message, deps, message_history):
+            return SimpleNamespace(output="چند برنامه", all_messages=lambda: [], new_messages=lambda: [])
+
+    async def plan(*args):
+        return turns.TurnDecision("plan")
+
+    async def goal(*args):
+        return TravelGoal(duration="یک روز")
+
+    async def screen(*args, map_itineraries, **kwargs):
+        for index in (1, 2):
+            map_itineraries.append({
+                "origin": {"name": "تهران", "latitude": 35.6892, "longitude": 51.389},
+                "stops": [{"order": 1, "name": f"مقصد {index}", "latitude": 35.8 + index * .01,
+                           "longitude": 51.4}],
+                "return_leg": {"leg_distance_km_from_previous": 20, "leg_duration_hours_from_previous": .5},
+                "round_trip": True,
+            })
+        return "### 🌿 پیشنهادها\n\n#### گزینهٔ 1: مقصد 1\n\n#### گزینهٔ 2: مقصد 2", None
+
+    monkeypatch.setattr(route, "get_memory_client", lambda: None)
+    monkeypatch.setattr(route, "get_neshan_client", lambda: None)
+    monkeypatch.setattr(route, "get_trip_planner_agent", lambda: FakeAgent())
+    monkeypatch.setattr(route, "understand_turn", plan)
+    monkeypatch.setattr(route, "update_travel_goal", goal)
+    monkeypatch.setattr(route, "screen_short_trip", screen)
+
+    response = await route.chat(ChatRequest(message="برای یک روز دو مقصد پیشنهاد بده"), Response())
+    assert response.itinerary is None
+    assert [plan.stops[0].name for plan in response.itineraries] == ["مقصد 1", "مقصد 2"]
+    assert response.session_id and response.user_id

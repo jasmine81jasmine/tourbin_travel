@@ -147,12 +147,15 @@ async def test_one_nearby_place_request_does_not_collapse_four_options_to_route_
                       "- **امکانات:** امکانات ثبت‌شده را پیش از حرکت بررسی کنید."
                 for name in descriptions}
 
+    map_options = []
     reply, route = await screen_short_trip(
         TravelGoal(duration="یک روز", objective="یه جای نزدیک با طبیعت خوب پیشنهاد بده"),
         FastMaps(), [], "پیشنهاد: " + "، ".join(names), itinerary,
-        description_formatter=formatter, graph=Graph(),
+        description_formatter=formatter, graph=Graph(), map_itineraries=map_options,
     )
     assert route is None  # four independent alternatives, not one journey
+    assert [option["stops"][0]["name"] for option in map_options] == names
+    assert all(option["round_trip"] and option["return_leg"] for option in map_options)
     for name in names:
         assert name in reply
         assert f"شرح کامل و خواندنی {name}. نکات بازدید {name}." not in reply
@@ -305,7 +308,9 @@ async def test_two_day_camping_discovers_northern_clusters_without_named_destina
 
     graph, maps = Graph(), Maps()
     goal = TravelGoal(duration="دو روز", region="شمال", objective="میخوام دو روز آخر هفته برم کمپ؛ اصلاح جدید: پیشنهاد بده")
-    reply, itinerary = await screen_short_trip(goal, maps, [], "جایی پیدا نکردم", graph=graph)
+    map_options = []
+    reply, itinerary = await screen_short_trip(goal, maps, [], "جایی پیدا نکردم", graph=graph,
+                                               map_itineraries=map_options)
     assert graph.calls[0]["location"] == ["گیلان", "مازندران", "گلستان"]
     assert graph.calls[0]["trip_types"] == ["کمپ"]
     assert "### 🌿 برنامهٔ 1" in reply and "### 🌿 برنامهٔ 2" in reply
@@ -315,6 +320,8 @@ async def test_two_day_camping_discovers_northern_clusters_without_named_destina
     assert "مجاز بودن کمپ" in reply
     assert "پیشنهاد بده" not in reply
     assert itinerary is None  # two independent complete routes cannot fit one itinerary field
+    assert len(map_options) == 2
+    assert all(len(option["stops"]) >= 2 and option["round_trip"] for option in map_options)
     assert maps.tsp_calls >= 2
 
 
