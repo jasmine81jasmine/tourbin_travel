@@ -7,7 +7,7 @@ return leg; without a routing result we cannot certify a short trip.
 import asyncio
 import json
 import re
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from pydantic_ai.messages import ModelRequest, ToolReturnPart
 
@@ -189,7 +189,9 @@ async def _discover_nearby(goal: TravelGoal, maps: Any, origin: tuple[float, flo
 
 
 async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[Any], reply: str,
-                            itinerary: Any = None) -> tuple[str, dict | None] | None:
+                            itinerary: Any = None,
+                            description_formatter: Callable[[dict[str, str]], Awaitable[dict[str, str]]] | None = None
+                            ) -> tuple[str, dict | None] | None:
     """Return a grounded replacement when the model proposes a short trip.
 
     No inferred coordinates or straight-line estimates are used as road ETA.
@@ -278,6 +280,17 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
             return ("برای پیشنهاد سفر کوتاه باید اول مسیر رفت‌وبرگشت یک مقصد مشخص را بررسی کنم. مقصد یا محدودهٔ دلخواهتان را بگویید تا گزینه‌ای متناسب با زمانتان پیدا کنیم.", None)
         return ("برای این سفر کوتاه فعلاً زمان مسیر رفت‌وبرگشت را نمی‌توانم با دادهٔ مسیریابی تأیید کنم؛ نمی‌خواهم مسیر دور را یک‌روزه پیشنهاد کنم. مبدأ و مقصد دقیق را بگویید یا کمی بعد دوباره امتحان کنیم.", None)
 
+    # The model chooses headings for graph descriptions; road figures and
+    # destination selection stay deterministic and cannot be re-invented.
+    descriptions = {row["name"]: row["description"] for row, _, _, _ in feasible[:4]
+                    if isinstance(row.get("description"), str) and row["description"].strip()}
+    formatted = descriptions
+    if descriptions and description_formatter is not None:
+        try:
+            formatted = await description_formatter(descriptions)
+        except Exception:
+            formatted = descriptions
+
     # List alternatives independently: never fabricate a combined itinerary.
     lines = [f"### 🌿 گزینه‌های سفر {goal.duration}",
              f"از {origin_name}، این مقصدها از نظر زمان رانندگی رفت‌وبرگشت بررسی شدند:"]
@@ -285,7 +298,7 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
         lines.append(f"#### {row['name']}")
         # The graph remains the source for destination characteristics; map
         # search is only used for driving feasibility and nearby POIs.
-        description = row.get("description")
+        description = formatted.get(row["name"])
         if isinstance(description, str) and description.strip():
             lines.append(description.strip())
         lines.append(

@@ -37,6 +37,31 @@ async def test_full_graph_description_is_retained_without_character_limit():
     assert "### 🚗" in reply and "**مجموع رانندگی:**" in reply
 
 
+@pytest.mark.asyncio
+async def test_short_trip_uses_formatter_only_for_description_not_route():
+    messages = [ModelRequest(parts=[ToolReturnPart(
+        tool_name="tool_get_destination_details",
+        content=json.dumps({"name": "درکه", "latitude": 35.8, "longitude": 51.4, "description": "متن کامل مقصد."}),
+        tool_call_id="t",
+    )])]
+
+    class FastMaps(_Maps):
+        async def route(self, origin, destination):
+            return {"distance_km": 16.1, "duration_hours": 0.33}
+
+    async def formatter(descriptions):
+        assert descriptions == {"درکه": "متن کامل مقصد."}
+        return {"درکه": "##### 🌿 چرا درکه؟\n\nمتن کامل مقصد."}
+
+    reply, route = await screen_short_trip(
+        TravelGoal(duration="یک روز"), FastMaps(), messages, "درکه",
+        description_formatter=formatter,
+    )
+    assert "##### 🌿 چرا درکه؟" in reply
+    assert "16.1 کیلومتر" in reply
+    assert route["stops"][0]["name"] == "درکه"
+
+
 class _Maps:
     enabled = True
 

@@ -13,6 +13,7 @@ from neo4j_agent_memory.integrations.pydantic_ai import record_agent_trace
 from src.adapters.neshan_client import get_neshan_client
 from src.agent.agent import get_trip_planner_agent, update_travel_goal
 from src.agent.dependencies import AgentDeps
+from src.agent.description_format import format_descriptions
 from src.agent.feasibility import ground_route_text, screen_short_trip
 from src.agent.goals import TravelGoal
 from src.agent.tools import build_trip_map
@@ -316,7 +317,8 @@ async def chat(
                 logger.warning("Could not build fallback itinerary", exc_info=True)
 
         checked = None if _is_only_greeting(request.message) else await screen_short_trip(
-            travel_goal, deps.maps, result.new_messages(), reply_text, itinerary
+            travel_goal, deps.maps, result.new_messages(), reply_text, itinerary,
+            description_formatter=format_descriptions,
         )
         if checked is not None:
             reply_text, verified_route = checked
