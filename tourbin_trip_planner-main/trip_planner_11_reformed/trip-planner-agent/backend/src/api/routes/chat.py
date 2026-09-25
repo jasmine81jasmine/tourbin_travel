@@ -10,10 +10,11 @@ from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserProm
 
 from neo4j_agent_memory.integrations.pydantic_ai import record_agent_trace
 
+from src.adapters.neshan_client import get_neshan_client
 from src.agent.agent import get_trip_planner_agent, update_travel_goal
 from src.agent.dependencies import AgentDeps
 from src.agent.goals import TravelGoal
-from src.api.schemas import ChatRequest, ChatResponse, SessionResponse
+from src.api.schemas import ChatRequest, ChatResponse, Itinerary, SessionResponse
 from src.memory import linking
 from src.memory.client import get_embedding_provider, get_memory_client
 from src.memory.graph import TripGraphRepository
@@ -257,6 +258,7 @@ async def chat(
         user_id=user_id,
         current_query=request.message,
         travel_goal=travel_goal,
+        maps=get_neshan_client(),
     )
 
     agent = get_trip_planner_agent()
@@ -350,7 +352,14 @@ async def chat(
             except Exception:
                 logger.exception("Failed to record/link reasoning trace (non-fatal)")
 
-        return ChatResponse(reply=reply_text, session_id=session_id, user_id=user_id)
+        itinerary = None
+        if deps.itinerary_result:
+            try:
+                itinerary = Itinerary.model_validate(deps.itinerary_result)
+            except Exception:
+                logger.warning("Could not serialize itinerary_result", exc_info=True)
+
+        return ChatResponse(reply=reply_text, session_id=session_id, user_id=user_id, itinerary=itinerary)
     except ModelAPIError as e:
         logger.warning("LLM provider request failed: %s", e)
         raise HTTPException(

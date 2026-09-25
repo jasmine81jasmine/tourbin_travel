@@ -301,6 +301,7 @@ class TripGraphRepository:
                d.road_type AS road_type, d.ecotourism AS ecotourism,
                d.facilities_level AS facilities_level, d.user_rating_text AS user_rating_text,
                d.user_rating_score AS user_rating_score,
+               d.location.latitude AS latitude, d.location.longitude AS longitude,
                $osm_only AS source_is_osm
         ORDER BY coalesce(d.user_rating_score, 0) DESC, coalesce(d.facilities_score, 0) DESC
         LIMIT $limit
@@ -358,6 +359,7 @@ class TripGraphRepository:
                other.road_type AS road_type, other.ecotourism AS ecotourism,
                other.facilities_level AS facilities_level, other.user_rating_text AS user_rating_text,
                other.user_rating_score AS user_rating_score,
+               other.location.latitude AS latitude, other.location.longitude AS longitude,
                anchor.name AS near_anchor, r.distance_km AS distance_to_anchor_km,
                other:OsmFeature AS source_is_osm
         ORDER BY r.distance_km ASC
@@ -436,6 +438,7 @@ class TripGraphRepository:
                d.road_type AS road_type, d.ecotourism AS ecotourism,
                d.facilities_level AS facilities_level, d.user_rating_text AS user_rating_text,
                d.user_rating_score AS user_rating_score,
+               d.location.latitude AS latitude, d.location.longitude AS longitude,
                round(distance_from_center_km, 1) AS distance_from_center_km,
                d:OsmFeature AS source_is_osm
         ORDER BY distance_from_center_km ASC
@@ -491,6 +494,7 @@ class TripGraphRepository:
         RETURN d {.*, city: city.name, province: coalesce(city_prov.name, direct_prov.name), categories: categories,
                    seasons: seasons, landmarks: landmarks, exit_routes: exit_routes,
                    vehicles: vehicles,
+                   latitude: d.location.latitude, longitude: d.location.longitude,
                    nearby_destinations: nearby} AS destination
         ORDER BY CASE WHEN d.id = $key THEN 0 ELSE 1 END,
                  CASE WHEN d:OsmFeature THEN 1 ELSE 0 END,
@@ -530,7 +534,8 @@ class TripGraphRepository:
         WITH d, other, point.distance(d.location, other.location) / 1000.0 AS distance_km,
              CASE WHEN EXISTS { MATCH (d)-[:NEAR_DESTINATION]-(other) } THEN 0 ELSE 1 END AS near_priority
         RETURN other.name AS name, other.id AS id, round(distance_km, 1) AS distance_km,
-               other.description AS description
+               other.description AS description,
+               other.location.latitude AS latitude, other.location.longitude AS longitude
         ORDER BY near_priority, distance_km ASC
         LIMIT 50
         """
@@ -541,6 +546,22 @@ class TripGraphRepository:
             lookup_keys=lookup_keys,
             radius_km=radius_km,
         )
+
+    async def get_coordinates_by_ids(self, destination_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Batch-resolve `{id: {name, latitude, longitude}}` for a list of
+        destination ids. Used to build the map-ready `itinerary` payload in
+        the chat response without a per-destination round trip."""
+        if not destination_ids:
+            return {}
+        rows = await self._read(
+            """
+            MATCH (d:Destination) WHERE d.id IN $ids
+            RETURN d.id AS id, d.name AS name,
+                   d.location.latitude AS latitude, d.location.longitude AS longitude
+            """,
+            ids=destination_ids,
+        )
+        return {r["id"]: r for r in rows}
 
     async def semantic_search_destinations(
         self,
@@ -577,6 +598,7 @@ class TripGraphRepository:
                d.distance_km AS distance_km, d.travel_time_hours AS travel_time_hours,
                d.physical_readiness AS physical_readiness, d.road_type AS road_type,
                d.facilities_level AS facilities_level, d:OsmFeature AS source_is_osm,
+               d.location.latitude AS latitude, d.location.longitude AS longitude,
                score AS semantic_score
         ORDER BY score DESC, CASE WHEN d:OsmFeature THEN 1 ELSE 0 END,
                  coalesce(d.user_rating_score, 0) DESC

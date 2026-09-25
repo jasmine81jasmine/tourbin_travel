@@ -15,8 +15,11 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from src.agent.dependencies import AgentDeps
 from src.agent.goals import TravelGoal
 from src.agent.tools import (
+    build_trip_map,
+    check_reachable_within_time,
     current_season,
     find_destinations_near,
+    find_nearby_amenities,
     get_destination_details,
     get_similar_past_trip_plans,
     get_user_preferences,
@@ -177,6 +180,39 @@ you can still reason about feasibility using your own knowledge of the
 region's geography (roughly how far apart places are, road travel times) --
 just don't propose a multi-stop day plan that would obviously require
 unreasonable backtracking or drive time.
+
+## Grounding the plan in real geography (map tools)
+
+Beyond the graph and your own knowledge, you have map tools backed by real
+road/geocoding data: `tool_build_trip_map` (visiting order + real drive
+distance/duration between stops), `tool_check_reachable_within_time`
+(filter candidates by a driving-time budget), and `tool_find_nearby_amenities`
+(restaurants/hotels/parking near a stop). Prefer coordinates already present
+on a destination (from search/details results) over anything else; these
+tools only geocode by name when nothing else has coordinates.
+
+- When the user has a tight or explicit time budget (a day trip, "فقط ۲ روز
+  وقت دارم", etc.) and you're comparing multiple candidate destinations,
+  call `tool_check_reachable_within_time` with that budget before deciding
+  which ones to actually include -- don't propose a destination that isn't
+  realistically reachable in the time available, and don't tell the user
+  it's unreachable without having checked.
+- Once you've settled on the concrete destination(s) for the plan -- even
+  a single one -- call `tool_build_trip_map` with those stops before writing
+  the final answer. For a multi-stop plan, use the order and per-leg
+  distance/duration it returns to structure "مسیر و دسترسی" and to sanity-check
+  that the whole combination fits the trip's duration: most of a short trip
+  should be spent *at* destinations, not driving between them, so if
+  `total_duration_hours` eats an unreasonable share of the available days,
+  cut a stop or say so rather than presenting an overloaded plan as-is.
+- Never expose tool names, coordinates as raw numbers, "isochrone",
+  "geocoding", or any API/internal detail to the user -- fold the result
+  into the same warm, natural plan you'd otherwise write; distances/times
+  should read as your own knowledge of the route, not a tool dump.
+- If a map tool comes back empty, partial, or with unresolved coordinates,
+  don't block or mention the gap to the user -- fall back to your own
+  geographic knowledge of the region exactly as you already do for missing
+  graph fields.
 
 ## When the graph genuinely comes up short
 
@@ -460,6 +496,74 @@ def get_trip_planner_agent() -> Agent[AgentDeps, str]:
         """Find other destinations close to a given one, to build a combined
         itinerary (e.g. a waterfall + a nearby historic village)."""
         result = await find_destinations_near(ctx, name_or_id, radius_km)
+        return json.dumps(result, default=str, ensure_ascii=False)
+
+    @agent.tool
+    async def tool_build_trip_map(
+        ctx: RunContext[AgentDeps],
+        stops: list[dict],
+        origin: dict | None = None,
+        round_trip: bool = False,
+    ) -> str:
+        """Call this once you've settled on the concrete list of destinations
+        for the plan (even a single destination), to ground the itinerary in
+        real geography before writing the final answer. It resolves each
+        stop's coordinates (preferring what the destination-search/details
+        tools already gave you; only geocodes by name as a last resort),
+        computes the best visiting order for multi-stop trips, and returns
+        real driving distance/duration between consecutive stops -- use the
+        returned `total_duration_hours` / per-leg values to judge whether the
+        plan actually fits the time the user has (e.g. don't spread stops
+        that need 8+ hours of driving across a 2-day trip that's mostly meant
+        for being *at* places, not driving between them).
+
+        Args:
+            stops: one dict per destination, in any order, e.g.
+                [{"name": "...", "id": "...", "latitude": .., "longitude": ..}, ...].
+                `id`/`latitude`/`longitude` are optional -- pass whatever you
+                already have from search/details results; missing ones are
+                resolved automatically. `name` is required.
+            origin: {"name": ..., "latitude": .., "longitude": ..} -- the
+                trip's starting point. Omit to default to central Tehran
+                (matches the "assume Tehran" rule), or pass the user's
+                stated origin/coordinates if different.
+            round_trip: true if the route should return to the origin
+                (relevant mainly for a single loop-day trip); usually false.
+        """
+        result = await build_trip_map(ctx, stops, origin, round_trip)
+        return json.dumps(result, default=str, ensure_ascii=False)
+
+    @agent.tool
+    async def tool_check_reachable_within_time(
+        ctx: RunContext[AgentDeps],
+        origin: dict,
+        minutes: float,
+        candidates: list[dict],
+    ) -> str:
+        """Before proposing destinations for a short/time-boxed trip, use
+        this to filter candidates down to ones actually reachable within
+        the user's time budget (one-way driving minutes) from `origin`.
+        Returns each candidate with `reachable` (true/false) and its
+        approximate distance -- drop or flag unreachable ones instead of
+        including them in the plan.
+
+        Args:
+            origin: {"name": ..., "latitude": .., "longitude": ..}
+            minutes: one-way driving time budget in minutes
+            candidates: [{"name": ..., "id": .., "latitude": .., "longitude": ..}, ...]
+        """
+        result = await check_reachable_within_time(ctx, origin, minutes, candidates)
+        return json.dumps(result, default=str, ensure_ascii=False)
+
+    @agent.tool
+    async def tool_find_nearby_amenities(
+        ctx: RunContext[AgentDeps], latitude: float, longitude: float, layer: str, radius_m: int = 3000
+    ) -> str:
+        """Find nearby amenities (restaurant, hotel, parking, hospital, cafe,
+        ...) around a destination's coordinates, to enrich a recommendation
+        with practical nearby options. `layer` is an English slug such as
+        "restaurant", "hotel", "parking", "cafe", "hospital", "bank"."""
+        result = await find_nearby_amenities(ctx, latitude, longitude, layer, radius_m)
         return json.dumps(result, default=str, ensure_ascii=False)
 
     @agent.tool

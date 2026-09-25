@@ -15,7 +15,12 @@ import jdatetime
 from pydantic_ai import RunContext
 
 from src.agent.dependencies import AgentDeps
+from src.agent.geo import estimate_duration_hours, haversine_km, point_in_any_polygon
 from src.agent.regions import expand_location
+
+# Tehran city-center coordinates, used as the default trip origin when the
+# user hasn't given/updated one (matches SYSTEM_PROMPT's default assumption).
+_DEFAULT_ORIGIN = {"name": "تهران", "latitude": 35.6892, "longitude": 51.3890}
 
 # Jalali (Persian solar calendar) month -> season. Farvardin-Khordad (1-3) is
 # بهار, Tir-Shahrivar (4-6) تابستان, Mehr-Azar (7-9) پاییز, Dey-Esfand (10-12)
@@ -216,6 +221,237 @@ async def get_similar_past_trip_plans(
         task=current_request, limit=limit, success_only=True
     )
     return [{"task": t.task, "outcome": t.outcome} for t in traces]
+
+
+async def _resolve_coordinates(
+    ctx: RunContext[AgentDeps],
+    name: str,
+    destination_id: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    city: str | None = None,
+    province: str | None = None,
+) -> dict[str, float] | None:
+    """Resolve one place's coordinates, cheapest source first:
+    1. Coordinates already supplied by the caller (e.g. from a prior
+       search-tool result that already carries `latitude`/`longitude`).
+    2. The graph, by id (exact) or by name (fuzzy, via get_destination_details).
+    3. The Neshan geocoding API, only as a last resort for a place that has
+       a name but no coordinates anywhere in the graph.
+    """
+    if latitude is not None and longitude is not None:
+        return {"latitude": float(latitude), "longitude": float(longitude)}
+
+    if ctx.deps.graph is not None:
+        if destination_id:
+            found = await ctx.deps.graph.get_coordinates_by_ids([destination_id])
+            row = found.get(destination_id)
+            if row and row.get("latitude") is not None and row.get("longitude") is not None:
+                return {"latitude": row["latitude"], "longitude": row["longitude"]}
+        if name:
+            details = await ctx.deps.graph.get_destination_details(name)
+            if details and details.get("latitude") is not None and details.get("longitude") is not None:
+                return {"latitude": details["latitude"], "longitude": details["longitude"]}
+
+    if ctx.deps.maps is not None and ctx.deps.maps.enabled and name:
+        geocoded = await ctx.deps.maps.geocode(name, city=city, province=province)
+        if geocoded:
+            return geocoded
+
+    return None
+
+
+async def build_trip_map(
+    ctx: RunContext[AgentDeps],
+    stops: list[dict[str, Any]],
+    origin: dict[str, Any] | None = None,
+    round_trip: bool = False,
+) -> dict[str, Any]:
+    """Resolve coordinates for every stop (DB first, geocoding fallback),
+    compute the best visiting order (TSP) and real road distance/duration
+    between consecutive stops (no-traffic routing), and stash the result on
+    `ctx.deps.itinerary_result` so the API layer can attach map-ready
+    {name, latitude, longitude, order} data to the response. Falls back to
+    straight-line distance estimates when the maps API is unavailable, so
+    it always returns something usable.
+    """
+    origin = origin or _DEFAULT_ORIGIN
+    origin_coords = await _resolve_coordinates(
+        ctx, origin.get("name", "مبدا"), latitude=origin.get("latitude"), longitude=origin.get("longitude")
+    ) or {"latitude": _DEFAULT_ORIGIN["latitude"], "longitude": _DEFAULT_ORIGIN["longitude"]}
+
+    resolved: list[dict[str, Any]] = []
+    unresolved: list[str] = []
+    for stop in stops:
+        coords = await _resolve_coordinates(
+            ctx,
+            stop.get("name", ""),
+            destination_id=stop.get("id"),
+            latitude=stop.get("latitude"),
+            longitude=stop.get("longitude"),
+            city=stop.get("city"),
+            province=stop.get("province"),
+        )
+        if coords is None:
+            unresolved.append(stop.get("name", "?"))
+            continue
+        resolved.append({"name": stop.get("name", "?"), **coords})
+
+    if not resolved:
+        return {"error": "no stop coordinates could be resolved", "unresolved": unresolved}
+
+    # --- Visiting order ---
+    order: list[int]
+    if len(resolved) == 1:
+        order = [0]
+    elif ctx.deps.maps is not None and ctx.deps.maps.enabled:
+        waypoints = [(origin_coords["latitude"], origin_coords["longitude"])] + [
+            (s["latitude"], s["longitude"]) for s in resolved
+        ]
+        tsp_order = await ctx.deps.maps.trip_order(
+            waypoints, round_trip=round_trip, source_is_any_point=False, last_is_any_point=True
+        )
+        if tsp_order:
+            # index 0 in `waypoints` is the origin -- drop it, shift the rest back to 0-based `resolved` indices.
+            order = [i - 1 for i in tsp_order if i != 0]
+        else:
+            order = _nearest_neighbor_order(origin_coords, resolved)
+    else:
+        order = _nearest_neighbor_order(origin_coords, resolved)
+
+    # --- Leg distances/durations, in visiting order, anchored on origin ---
+    ordered_stops: list[dict[str, Any]] = []
+    prev = origin_coords
+    total_distance_km = 0.0
+    total_duration_hours = 0.0
+    for position, idx in enumerate(order, start=1):
+        stop = resolved[idx]
+        leg = None
+        if ctx.deps.maps is not None and ctx.deps.maps.enabled:
+            leg = await ctx.deps.maps.route(
+                (prev["latitude"], prev["longitude"]), (stop["latitude"], stop["longitude"])
+            )
+        if leg is None:
+            dist = haversine_km(prev["latitude"], prev["longitude"], stop["latitude"], stop["longitude"])
+            leg = {"distance_km": round(dist, 1), "duration_hours": round(estimate_duration_hours(dist), 2)}
+        total_distance_km += leg["distance_km"]
+        total_duration_hours += leg["duration_hours"]
+        ordered_stops.append(
+            {
+                "order": position,
+                "name": stop["name"],
+                "latitude": stop["latitude"],
+                "longitude": stop["longitude"],
+                "leg_distance_km_from_previous": leg["distance_km"],
+                "leg_duration_hours_from_previous": leg["duration_hours"],
+            }
+        )
+        prev = stop
+
+    result = {
+        "origin": origin_coords | {"name": origin.get("name", "مبدا")},
+        "stops": ordered_stops,
+        "total_distance_km": round(total_distance_km, 1),
+        "total_duration_hours": round(total_duration_hours, 2),
+        "round_trip": round_trip,
+        "unresolved_stops": unresolved,
+        "used_real_routing": bool(ctx.deps.maps is not None and ctx.deps.maps.enabled),
+    }
+    ctx.deps.itinerary_result = result
+    return result
+
+
+def _nearest_neighbor_order(origin: dict[str, float], stops: list[dict[str, Any]]) -> list[int]:
+    """Greedy nearest-neighbor ordering by straight-line distance -- used
+    only when the Neshan TSP endpoint is unavailable/unconfigured."""
+    remaining = list(range(len(stops)))
+    order: list[int] = []
+    current = origin
+    while remaining:
+        best = min(
+            remaining,
+            key=lambda i: haversine_km(
+                current["latitude"], current["longitude"], stops[i]["latitude"], stops[i]["longitude"]
+            ),
+        )
+        order.append(best)
+        remaining.remove(best)
+        current = stops[best]
+    return order
+
+
+async def check_reachable_within_time(
+    ctx: RunContext[AgentDeps],
+    origin: dict[str, Any],
+    minutes: float,
+    candidates: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """For each candidate destination, decide whether it's realistically
+    reachable within `minutes` of driving from `origin` -- use this before
+    proposing destinations for a short/time-boxed trip so the plan doesn't
+    combine stops that are individually fine but jointly infeasible.
+
+    Uses the isochrone API when available (real road network); falls back
+    to a straight-line-distance + average-speed estimate otherwise. Always
+    returns a per-candidate verdict, never an error, so it's safe to call
+    speculatively.
+    """
+    origin_coords = await _resolve_coordinates(
+        ctx, origin.get("name", "مبدا"), latitude=origin.get("latitude"), longitude=origin.get("longitude")
+    )
+    if origin_coords is None:
+        return [{"name": c.get("name", "?"), "reachable": None, "reason": "origin coordinates unknown"} for c in candidates]
+
+    isochrone_geojson = None
+    if ctx.deps.maps is not None and ctx.deps.maps.enabled:
+        isochrone_geojson = await ctx.deps.maps.isochrone(
+            origin_coords["latitude"], origin_coords["longitude"], minutes=minutes
+        )
+
+    results: list[dict[str, Any]] = []
+    for candidate in candidates:
+        coords = await _resolve_coordinates(
+            ctx,
+            candidate.get("name", ""),
+            destination_id=candidate.get("id"),
+            latitude=candidate.get("latitude"),
+            longitude=candidate.get("longitude"),
+        )
+        if coords is None:
+            results.append({"name": candidate.get("name", "?"), "reachable": None, "reason": "coordinates unknown"})
+            continue
+        distance_km = round(
+            haversine_km(origin_coords["latitude"], origin_coords["longitude"], coords["latitude"], coords["longitude"]),
+            1,
+        )
+        if isochrone_geojson is not None:
+            reachable = point_in_any_polygon(coords["latitude"], coords["longitude"], isochrone_geojson)
+        else:
+            reachable = estimate_duration_hours(distance_km) * 60 <= minutes
+        results.append(
+            {
+                "name": candidate.get("name", "?"),
+                "reachable": reachable,
+                "approx_distance_km": distance_km,
+            }
+        )
+    return results
+
+
+async def find_nearby_amenities(
+    ctx: RunContext[AgentDeps],
+    latitude: float,
+    longitude: float,
+    layer: str,
+    radius_m: int = 3000,
+) -> list[dict[str, Any]] | dict[str, str]:
+    """Look up nearby amenities (restaurant, hotel, parking, hospital, ...)
+    around a point to enrich a destination's description. `layer` must be
+    one of Neshan's nearby-search layer slugs (e.g. "restaurant", "hotel",
+    "parking", "cafe", "hospital")."""
+    if ctx.deps.maps is None or not ctx.deps.maps.enabled:
+        return {"status": "skipped", "reason": "maps API not configured"}
+    return await ctx.deps.maps.nearby(latitude, longitude, layer, radius_m)
 
 
 def current_season(now: datetime | None = None) -> str:

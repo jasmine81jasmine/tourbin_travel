@@ -81,6 +81,19 @@ class Settings(BaseSettings):
     dedup_auto_merge_threshold: float = Field(default=0.92)
     dedup_flag_threshold: float = Field(default=0.82)
 
+    # Neshan maps API (geocoding, routing, TSP ordering, isochrone, nearby
+    # search) used to ground trip plans in real distances/times. Optional:
+    # every call degrades gracefully to DB data + haversine estimates when
+    # this key is unset, so leaving it blank never breaks the chat endpoint.
+    neshan_api_key: SecretStr = Field(
+        default=SecretStr(""),
+        validation_alias=AliasChoices("NESHAN_API_KEY"),
+    )
+    neshan_base_url: str = Field(
+        default="https://api.neshan.org",
+        validation_alias=AliasChoices("NESHAN_BASE_URL"),
+    )
+
     # Server
     host: str = Field(default="0.0.0.0")
     port: int = Field(default=8000)
