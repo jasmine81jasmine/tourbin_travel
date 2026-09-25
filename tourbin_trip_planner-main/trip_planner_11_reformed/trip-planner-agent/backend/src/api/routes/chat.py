@@ -15,7 +15,7 @@ from src.agent.agent import get_trip_planner_agent, update_travel_goal
 from src.agent.dependencies import AgentDeps
 from src.agent.description_format import format_descriptions
 from src.agent.feasibility import ground_route_text, screen_short_trip
-from src.agent.goals import TravelGoal
+from src.agent.goals import TravelGoal, recall_recommendations, remember_recommended_routes
 from src.agent.tools import build_trip_map
 from src.agent.turns import TurnDecision, apply_goal_updates, understand_turn
 from src.api.schemas import ChatRequest, ChatResponse, Itinerary, SessionResponse
@@ -212,6 +212,8 @@ async def chat(
                 current_goal = TravelGoal.model_validate(stored_goal)
             except Exception:
                 logger.warning("Ignoring invalid stored travel goal", exc_info=True)
+    if current_goal is not None:
+        current_goal = recall_recommendations(current_goal, recent_transcript)
 
     if not _is_travel_related(request.message):
         named_destination = None
@@ -350,6 +352,16 @@ async def chat(
                     itinerary = None
         elif itinerary is not None and decision.action == "plan":
             reply_text = ground_route_text(reply_text, itinerary)
+
+        if decision.action == "plan" and travel_goal is not None:
+            proposed = map_itineraries or ([itinerary.model_dump()] if itinerary is not None else [])
+            if proposed:
+                travel_goal = remember_recommended_routes(travel_goal, proposed)
+                if graph_repo is not None:
+                    try:
+                        await graph_repo.upsert_travel_goal(session_id, user_id, travel_goal.model_dump())
+                    except Exception:
+                        logger.warning("Could not remember proposed routes for this session", exc_info=True)
 
         if memory_client is not None:
             await memory_client.short_term.add_message(

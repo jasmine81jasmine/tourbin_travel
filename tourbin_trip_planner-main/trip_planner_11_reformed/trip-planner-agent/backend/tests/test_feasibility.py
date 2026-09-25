@@ -5,8 +5,8 @@ import json
 import pytest
 from pydantic_ai.messages import ModelRequest, ToolReturnPart
 
-from src.agent.feasibility import _wants_one_place, driving_budget, ground_route_text, screen_short_trip
-from src.agent.goals import TravelGoal
+from src.agent.feasibility import _intent_score, _wants_one_place, driving_budget, ground_route_text, screen_short_trip
+from src.agent.goals import TravelGoal, recall_recommendations, remember_recommended_routes
 from src.api.schemas import Itinerary
 
 
@@ -30,6 +30,46 @@ def test_two_and_three_day_driving_budgets_are_per_trip_not_per_day():
     assert driving_budget(TravelGoal(duration="دو روز")) == 12
     assert driving_budget(TravelGoal(duration="سه روز")) == 18
     assert driving_budget(TravelGoal(duration="آخر هفته")) == 12
+
+
+def test_remembers_only_bounded_distinct_routes_in_the_current_goal():
+    goal = TravelGoal(duration="دو روز")
+    first = {"stops": [{"name": "امامه"}, {"name": "لواسان"}]}
+    goal = remember_recommended_routes(goal, [first, first, {"stops": [{"name": "ایگل"}]}])
+    assert goal.recommended_routes == [["امامه", "لواسان"], ["ایگل"]]
+    assert TravelGoal.model_validate(goal.model_dump()).recommended_routes == goal.recommended_routes
+
+
+def test_old_chat_can_recover_previously_proposed_options_from_transcript():
+    transcript = ("توربین: **ترتیب بازدید:** تهران ← روستای امامه ← لواسان ← تهران\n"
+                  "### 🌿 برنامهٔ 2\nترتیب بازدید: تهران ← اوشان فشم ← روستای ایگل ← تهران")
+    goal = recall_recommendations(TravelGoal(duration="دو روز"), transcript)
+    assert goal.recommended_routes == [["روستای امامه", "لواسان"], ["اوشان فشم", "روستای ایگل"]]
+    assert recall_recommendations(goal, transcript).recommended_routes == goal.recommended_routes
+
+
+def test_adventurous_graph_features_outrank_relaxed_recommendations():
+    goal = TravelGoal(moods=["ماجراجویانه"], objective="برنامهٔ هیجانی برای دوستام")
+    exciting = {"name": "تنگه", "categories": ["کوهنوردی"], "description": "رودخانه‌نوردی و صخره‌نوردی هیجان‌انگیز"}
+    relaxed = {"name": "پارک", "categories": ["تفریح خانوادگی"], "description": "آرامش در پارک شهری"}
+    assert _intent_score(exciting, goal) > _intent_score(relaxed, goal)
+
+
+@pytest.mark.asyncio
+async def test_around_tehran_is_preserved_as_graph_location_filter():
+    from src.agent.feasibility import _multiday_candidates
+
+    class Graph:
+        calls = []
+
+        async def search_destinations(self, **kwargs):
+            self.calls.append(kwargs)
+            return [{"name": "تنگه واشی", "latitude": 35.8, "longitude": 52.7}]
+
+    graph = Graph()
+    goal = TravelGoal(duration="دو روز", objective="کمپ دو روزه اطراف تهران")
+    await _multiday_candidates(goal, graph, [], [])
+    assert graph.calls[0]["location"] == ["تهران", "البرز", "قزوین"]
 
 
 @pytest.mark.asyncio
@@ -323,6 +363,102 @@ async def test_two_day_camping_discovers_northern_clusters_without_named_destina
     assert len(map_options) == 2
     assert all(len(option["stops"]) >= 2 and option["round_trip"] for option in map_options)
     assert maps.tsp_calls >= 2
+
+
+@pytest.mark.asyncio
+async def test_exciting_followup_finds_new_graph_clusters_instead_of_rebranding_old_plans():
+    old = [
+        {"id": "old1", "name": "روستای امامه", "latitude": 35.8, "longitude": 51.5,
+         "categories": ["طبیعت"], "trip_types": ["کمپ"]},
+        {"id": "old2", "name": "لواسان", "latitude": 35.81, "longitude": 51.51,
+         "categories": ["تفریح خانوادگی"], "trip_types": ["کمپ"]},
+        {"id": "old3", "name": "اوشان فشم", "latitude": 35.85, "longitude": 51.53,
+         "categories": ["طبیعت"], "trip_types": ["کمپ"]},
+        {"id": "old4", "name": "روستای ایگل", "latitude": 35.87, "longitude": 51.55,
+         "categories": ["طبیعت"], "trip_types": ["کمپ"]},
+    ]
+    adventurous = [
+        {"id": "new1", "name": "تنگه واشی", "latitude": 35.8, "longitude": 52.7,
+         "categories": ["طبیعت"], "trip_types": ["کمپ"],
+         "description": "مسیر هیجان‌انگیز رودخانه‌نوردی و صخره‌نوردی دارد."},
+        {"id": "new2", "name": "آبشار واشی", "latitude": 35.82, "longitude": 52.72,
+         "categories": ["ماجراجویی"], "description": "مسیر کوهنوردی و آبشار دارد."},
+        {"id": "new3", "name": "دریاچه تار", "latitude": 35.95, "longitude": 52.1,
+         "categories": ["کوهنوردی"], "trip_types": ["کمپ"], "description": "مسیر آفرود دارد."},
+        {"id": "new4", "name": "دریاچه هویر", "latitude": 35.98, "longitude": 52.12,
+         "categories": ["کوهنوردی"], "description": "سفر ماجراجویانه است."},
+    ]
+
+    class Graph:
+        semantic_queries = []
+
+        async def semantic_search_destinations(self, query, limit):
+            self.semantic_queries.append(query)
+            return [{**row, "semantic_score": .9} for row in adventurous]
+
+        async def search_destinations(self, **kwargs):
+            return old + adventurous
+
+        async def get_destination_details(self, key):
+            return next(row for row in old + adventurous if key in (row["id"], row["name"]))
+
+    class Maps(_Maps):
+        async def trip_order(self, waypoints, **kwargs):
+            return list(range(len(waypoints)))
+
+        async def route(self, origin, destination):
+            hours = 3.0 if 35.6892 in (origin[0], destination[0]) else .5
+            return {"distance_km": hours * 50, "duration_hours": hours}
+
+    goal = TravelGoal(duration="دو روز", origin="تهران", moods=["ماجراجویانه"],
+                      objective="سلام دو روز کمپ با دوستام؛ اصلاح جدید: برنامه هیجانی دیگه چی داری",
+                      semantic_query="دو روز کمپ هیجانی ماجراجویانه",
+                      recommended_routes=[["روستای امامه", "لواسان"], ["اوشان فشم", "روستای ایگل"]])
+    graph, maps = Graph(), Maps()
+    routes = []
+    reply, selected = await screen_short_trip(goal, maps, [], "برنامه‌های تازه", graph=graph,
+                                               map_itineraries=routes)
+    assert graph.semantic_queries == [goal.semantic_query]
+    assert routes and len(routes) == 2 and selected is None
+    assert "تنگه واشی" in reply or "دریاچه تار" in reply
+    assert all(not {stop["name"] for stop in route["stops"]} &
+               {"روستای امامه", "لواسان", "اوشان فشم", "روستای ایگل"} for route in routes)
+    assert all(route["total_duration_hours"] <= 12 for route in routes)
+
+
+def test_explicit_place_can_be_revisited_even_if_it_was_suggested_before():
+    from src.agent.feasibility import _allow_revisit
+
+    goal = TravelGoal(objective="کمپ دو روزه؛ اصلاح جدید: برای روستای ایگل برنامه بده",
+                      recommended_routes=[["اوشان فشم", "روستای ایگل"]])
+    assert _allow_revisit(goal)
+    assert not _allow_revisit(goal.model_copy(update={"objective": "کمپ؛ اصلاح جدید: برنامه‌های دیگه چی داری"}))
+
+
+@pytest.mark.asyncio
+async def test_repeat_day_trip_request_uses_unseen_graph_destinations():
+    old = {"name": "درکه", "latitude": 35.8, "longitude": 51.4, "categories": ["طبیعت"]}
+    fresh = {"name": "آبشار کمرد", "latitude": 35.85, "longitude": 51.55, "categories": ["طبیعت"]}
+    messages = [ModelRequest(parts=[ToolReturnPart(
+        tool_name="tool_get_destination_details", content=json.dumps(old), tool_call_id="t",
+    )])]
+
+    class Graph:
+        async def search_destinations(self, **kwargs):
+            return [old, fresh]
+
+        async def get_destination_details(self, name):
+            return {**fresh, "description": "آبشار با مسیر طبیعت‌گردی است."}
+
+    class Maps(_Maps):
+        async def route(self, origin, destination):
+            return {"distance_km": 25.0, "duration_hours": .6}
+
+    goal = TravelGoal(duration="یک روز", objective="یک روز طبیعت؛ اصلاح جدید: یه جای جدید پیشنهاد بده",
+                      recommended_routes=[["درکه"]])
+    reply, itinerary = await screen_short_trip(goal, Maps(), messages, "درکه را پیشنهاد می‌کنم", graph=Graph())
+    assert "آبشار کمرد" in reply and "#### گزینهٔ 1: درکه" not in reply
+    assert itinerary["stops"][0]["name"] == "آبشار کمرد"
 
 
 @pytest.mark.asyncio

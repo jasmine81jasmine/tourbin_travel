@@ -239,6 +239,47 @@ def _place(row: dict) -> tuple[float, float]:
     return float(row["latitude"]), float(row["longitude"])
 
 
+def _recent_names(goal: TravelGoal) -> set[str]:
+    return {name for route in goal.recommended_routes for name in route}
+
+
+def _allow_revisit(goal: TravelGoal) -> bool:
+    latest = goal.objective.rsplit("اصلاح جدید:", 1)[-1]
+    return (any(name in latest for name in _recent_names(goal))
+            and not any(term in latest for term in ("دیگه", "دیگر", "جدید", "متفاوت")))
+
+
+def _adventure_intent(goal: TravelGoal) -> bool:
+    text = " ".join([goal.objective.rsplit("اصلاح جدید:", 1)[-1], *goal.moods, *goal.activities])
+    return any(term in text for term in ("هیجان", "ماجراجو", "چالش", "آفرود", "رفتینگ", "صخره"))
+
+
+def _intent_score(row: dict, goal: TravelGoal) -> float:
+    """Rank actual graph content and semantic matches ahead of nearest-only."""
+    values = []
+    for field in ("categories", "trip_types"):
+        value = row.get(field) or []
+        values.extend(value if isinstance(value, list) else [value])
+    tags = " ".join(map(str, values))
+    text = " ".join((row.get("name") or "", row.get("description") or ""))[:6000]
+    score = float(row.get("semantic_score") or 0) * 8
+    if _adventure_intent(goal):
+        terms = ("هیجان", "ماجراجو", "آفرود", "صخره", "غار", "تنگه", "کوه", "آبشار",
+                 "زیپ", "رفتینگ", "پاراگلایدر", "رودخانه نورد", "تنگ نورد", "سنگ نورد")
+        score += sum(5 for term in terms if term in tags)
+        score += sum(1.5 for term in terms if term in text)
+        if row.get("physical_readiness") == "زیاد":
+            score += 2
+    if goal.moods and any(mood in ("آرام", "خلوت") for mood in goal.moods):
+        score += sum(2 for term in ("دنج", "آرام", "خلوت", "بکر") if term in tags or term in text)
+    for activity in goal.activities:
+        if activity in tags:
+            score += 4
+        elif activity in text:
+            score += 1
+    return score
+
+
 async def _route_plan(maps: Any, origin: tuple[float, float], origin_name: str,
                       rows: list[dict], budget: float, optimize: bool = True) -> dict | None:
     """TSP determines visit order; no-traffic routing verifies every leg."""
@@ -285,16 +326,26 @@ async def _route_plan(maps: Any, origin: tuple[float, float], origin_name: str,
 async def _multiday_candidates(goal: TravelGoal, graph: Any, messages: list[Any],
                                mentioned: list[dict]) -> list[dict]:
     """Search the graph even when the agent returned no place names this turn."""
-    location = expand_location(goal.region) or None
+    location = expand_location(goal.region or ("اطراف تهران" if "اطراف تهران" in goal.objective else None)) or None
     rows = []
     if graph is not None:
+        if goal.semantic_query and hasattr(graph, "semantic_search_destinations"):
+            try:
+                semantic = await graph.semantic_search_destinations(goal.semantic_query, limit=24)
+                if location:
+                    semantic = [row for row in semantic if row.get("province") in location
+                                or row.get("city") in location]
+                rows += semantic
+            except Exception:
+                pass
         try:
             if "کمپ" in goal.objective or "چادر" in goal.objective:
-                rows = await graph.search_destinations(trip_types=["کمپ"], location=location, limit=25)
-            if len(rows) < 5:
-                rows += await graph.search_destinations(location=location, limit=25)
+                rows += await graph.search_destinations(trip_types=["کمپ"], location=location, limit=80)
+            rows += await graph.search_destinations(location=location, limit=100)
         except Exception:
             pass
+    if not location:
+        rows = [*mentioned, *_unused_search_candidates(messages, {r.get("name") for r in mentioned}), *rows]
     # For an explicitly requested region, trust region-filtered graph matches
     # over the model's potentially out-of-region suggestions.
     if not rows and not goal.region:
@@ -308,7 +359,11 @@ async def _multiday_candidates(goal: TravelGoal, graph: Any, messages: list[Any]
             continue
         seen.add(row["name"])
         result.append(row)
-    return result[:25]
+    recent = set() if _allow_revisit(goal) else _recent_names(goal)
+    unseen = [row for row in result if row["name"] not in recent]
+    if len(unseen) >= 2:
+        result = unseen
+    return sorted(result, key=lambda row: _intent_score(row, goal), reverse=True)[:80]
 
 
 async def _discover_multiday_plans(goal: TravelGoal, maps: Any, graph: Any, messages: list[Any],
@@ -319,23 +374,37 @@ async def _discover_multiday_plans(goal: TravelGoal, maps: Any, graph: Any, mess
         return []
     # A few likely anchors, not every graph node: route requests have quotas.
     camping = "کمپ" in goal.objective or "چادر" in goal.objective
-    anchors = sorted(pool, key=lambda row: (
+    ranked = sorted(pool, key=lambda row: (
+        -_intent_score(row, goal),
         0 if camping and "کمپ" in (row.get("trip_types") or []) else 1 if camping else 0,
         haversine_km(*origin, *_place(row)),
-    ))[:8]
-    estimates = await asyncio.gather(*(maps.route(origin, _place(row)) for row in anchors), return_exceptions=True)
+    ))
+    nearest = sorted(pool, key=lambda row: haversine_km(*origin, *_place(row)))
+    anchors = list(dict.fromkeys(row["name"] for row in [*ranked[:6], *nearest[:4]]))
+    by_name = {row["name"]: row for row in pool}
+    anchors = [by_name[name] for name in anchors]
+    quota = asyncio.Semaphore(3)
+
+    async def estimate(row):
+        async with quota:
+            return await maps.route(origin, _place(row))
+
+    estimates = await asyncio.gather(*(estimate(row) for row in anchors), return_exceptions=True)
     reachable = [(row, leg) for row, leg in zip(anchors, estimates)
                  if isinstance(leg, dict) and leg["duration_hours"] <= 6]
     reachable.sort(key=lambda item: (
+        -_intent_score(item[0], goal),
         0 if camping and "کمپ" in (item[0].get("trip_types") or []) else 1 if camping else 0,
         item[1]["duration_hours"],
     ))
     plans = []
-    seen = set()
-    for anchor, _ in reachable[:5]:
+    overlapping = []
+    seen = set() if _allow_revisit(goal) else {frozenset(route) for route in goal.recommended_routes if route}
+    for anchor, _ in reachable[:8]:
         nearby = sorted((row for row in pool if row["name"] != anchor["name"]
                          and haversine_km(*_place(anchor), *_place(row)) <= 80),
-                        key=lambda row: haversine_km(*_place(anchor), *_place(row)))
+                        key=lambda row: (-_intent_score(row, goal),
+                                         haversine_km(*_place(anchor), *_place(row))))
         if not nearby and graph is not None:
             try:
                 nearby = [row for row in await graph.find_destinations_near(anchor.get("id") or anchor["name"], 80)
@@ -350,9 +419,14 @@ async def _discover_multiday_plans(goal: TravelGoal, maps: Any, graph: Any, mess
             seen.add(key)
             plan = await _route_plan(maps, origin, goal.origin, chosen, budget)
             if plan:
+                if plans and any(key & {stop["name"] for stop in existing["stops"]} for existing in plans):
+                    overlapping.append(plan)
+                    continue
                 plans.append(plan)
                 if len(plans) == 2:
                     return plans
+    if len(plans) < 2 and overlapping:
+        plans.append(overlapping[0])
     return plans
 
 
@@ -435,7 +509,9 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
             rows = [{"name": stop.name, "latitude": stop.latitude, "longitude": stop.longitude}
                     for stop in itinerary.stops]
             verified = await _route_plan(maps, origin, origin_name, rows, budget)
-            if verified:
+            old_routes = (set() if _allow_revisit(goal)
+                          else {frozenset(route) for route in goal.recommended_routes})
+            if verified and frozenset(stop["name"] for stop in verified["stops"]) not in old_routes:
                 plans.append(verified)
         if len(plans) < 2:
             discovered_plans = await _discover_multiday_plans(goal, maps, graph, messages, candidates, origin, budget)
@@ -467,6 +543,21 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
                 return await _render_multiday_plans(goal, [plan], candidates, graph, description_formatter,
                                                     map_itineraries)
         return ("مسیر ترکیبی این توقف‌ها با فرصت یک‌روزه سازگار نیست؛ گزینه‌های نزدیک‌تر را بررسی می‌کنم.", None)
+
+    # A new planning turn should not recycle the same places simply because
+    # search results are sorted by rating/distance in the same order each time.
+    if goal.recommended_routes:
+        old_names = set() if _allow_revisit(goal) else _recent_names(goal)
+        candidates = [row for row in candidates if row.get("name") not in old_names]
+        if graph is not None and len(candidates) < 4:
+            extra = await _multiday_candidates(goal, graph, messages, candidates)
+            seen_names = {row.get("name") for row in candidates}
+            for row in extra:
+                if row["name"] not in seen_names and row["name"] not in old_names:
+                    candidates.append(row)
+                    seen_names.add(row["name"])
+                if len(candidates) >= 6:
+                    break
 
     feasible = []
     verified = 0
