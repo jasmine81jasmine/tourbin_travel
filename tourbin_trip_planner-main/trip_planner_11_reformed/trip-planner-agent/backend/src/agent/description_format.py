@@ -13,7 +13,7 @@ from src.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-_FIELDS = ("why", "activity", "facilities", "tip")
+_FIELDS = ("why", "facilities", "tip")
 _ROUTE_FIGURE = re.compile(r"[0-9۰-۹٠-٩]+\s*(?:کیلومتر|ساعت|دقیقه|km|hour)")
 
 
@@ -31,22 +31,19 @@ def _fallback_card(row: dict[str, Any]) -> str:
     if isinstance(categories, str):
         categories = [categories]
     why = _extract_sentences(description, ("طبیعت", "رودخانه", "جنگل", "دشت", "منظره", "تاریخی"))
-    activity = _extract_sentences(description, ("پیاده", "بازدید", "پیک نیک", "عکاسی", "آبشار"))
     facilities = _extract_sentences(description, ("امکانات", "رستوران", "کافه", "سرویس بهداشتی", "آلاچیق"))
     tip = _extract_sentences(description, ("شیب", "کفش", "دشواری", "احتیاط"))
     lines = []
     if why or categories:
-        lines.append(f"- **چرا این مقصد؟** {why or '، '.join(map(str, categories))}")
-    if activity:
-        lines.append(f"- **پیشنهاد بازدید:** {activity}")
+        lines.append(f"- **ویژگی‌ها:** {why or '، '.join(map(str, categories))}")
     if facilities or row.get("facilities") or row.get("facilities_level"):
         amenities = row.get("facilities") or row.get("facilities_level")
         if isinstance(amenities, list):
             amenities = "، ".join(map(str, amenities))
         lines.append(f"- **امکانات:** {facilities or amenities}")
     if tip or row.get("physical_readiness"):
-        lines.append(f"- **نکتهٔ مسیر:** {tip or 'آمادگی بدنی: ' + str(row['physical_readiness'])}")
-    return "\n".join(lines) if lines else "- **پیشنهاد بازدید:** برای دیدن این مقصد و استراحت در آن برنامه بگذارید؛ امکانات و شرایط دسترسی را پیش از حرکت بررسی کنید."
+        lines.append(f"- **دسترسی:** {tip or 'آمادگی بدنی: ' + str(row['physical_readiness'])}")
+    return "\n".join(lines) if lines else "- **ویژگی‌ها:** برای این مقصد جزئیات تأییدشده‌ای ندارم؛ امکانات و شرایط دسترسی را پیش از حرکت بررسی کنید."
 
 
 def _render_card(data: Any) -> str | None:
@@ -59,9 +56,9 @@ def _render_card(data: Any) -> str | None:
         if not isinstance(value, str) or len(value) > 230 or "\n" in value or _ROUTE_FIGURE.search(value):
             return None
         fields.append(value.strip())
-    if not fields[0] or not fields[1]:
+    if not fields[0]:
         return None
-    labels = ("چرا این مقصد؟", "پیشنهاد بازدید", "امکانات", "نکتهٔ مسیر")
+    labels = ("ویژگی‌ها:", "امکانات:", "دسترسی:")
     return "\n".join(f"- **{label}** {text}" for label, text in zip(labels, fields) if text)
 
 
@@ -72,14 +69,14 @@ def _formatter() -> Agent:
         system_prompt=(
             "You write concise Persian TRIP-PLAN cards, never encyclopedia articles. "
             "Return ONLY JSON with 'destinations': one object per input, using its exact 'name' "
-            "and four short plain-text strings 'why', 'activity', 'facilities', 'tip'. "
-            "For each destination, summarize why it fits, a concrete activity for the visit, "
-            "actual facilities if supported, and a practical accessibility/gear note. "
+            "and three short plain-text strings 'why', 'facilities', 'tip'. "
+            "For each destination, describe its distinctive nature/features, actual facilities "
+            "if supported, and relevant access/terrain information if known. "
             "Use graph properties and description as primary evidence; ignore promotional/article "
             "introductions and repetitions. If fields are missing, use general knowledge only "
             "when confident; never invent specific facilities, opening hours, prices or access. "
             "Leave uncertain facilities blank. Adapt suggestions to the travel goal and companions. "
-            "Each string should be ONE short sentence, not a paragraph. "
+            "Each string should be ONE short factual sentence, not a paragraph or generic activity instruction. "
             "Do NOT provide driving distances, driving durations, origin, a route, or other destinations: "
             "those are supplied separately by verified routing. No Markdown in the JSON fields."
         ),
@@ -107,6 +104,11 @@ async def format_descriptions(destinations: dict[str, dict[str, Any]], goal: Any
             return fallback
         for choice in choices:
             if isinstance(choice, dict) and choice.get("name") in destinations:
+                trusted_facilities = destinations[choice["name"]].get("facilities")
+                if trusted_facilities:
+                    if isinstance(trusted_facilities, list):
+                        trusted_facilities = "، ".join(map(str, trusted_facilities))
+                    choice = {**choice, "facilities": str(trusted_facilities)}
                 card = _render_card(choice)
                 if card:
                     fallback[choice["name"]] = card

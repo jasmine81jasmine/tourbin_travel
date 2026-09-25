@@ -7,6 +7,7 @@ return leg; without a routing result we cannot certify a short trip.
 import asyncio
 import json
 import re
+from itertools import combinations
 from typing import Any, Awaitable, Callable
 
 from pydantic_ai.messages import ModelRequest, ToolReturnPart
@@ -14,6 +15,7 @@ from pydantic_ai.messages import ModelRequest, ToolReturnPart
 from src.agent.description_format import _fallback_card
 from src.agent.goals import TravelGoal
 from src.agent.geo import haversine_km, point_in_any_polygon
+from src.agent.regions import expand_location
 from src.agent.tools import DEFAULT_ORIGIN
 
 
@@ -27,9 +29,9 @@ def driving_budget(goal: TravelGoal | None) -> float | None:
         return None
     match = re.search(r"(یک|دو|سه|چهار|پنج|[1-5۱-۵])\s*روز", goal.duration)
     if not match:
-        return 7.0 if goal.duration == "آخر هفته" else None
+        return 12.0 if goal.duration == "آخر هفته" else None
     days = _DAYS.get(match.group(1))
-    return {1: 4.0, 2: 7.0, 3: 10.0}.get(days)
+    return {1: 4.0, 2: 12.0, 3: 18.0}.get(days)
 
 
 def _trip_days(goal: TravelGoal) -> int:
@@ -107,6 +109,8 @@ def ground_route_text(reply: str, itinerary: Any) -> str:
 def _discovery_layers(goal: TravelGoal) -> tuple[str, ...]:
     """Search for places to visit, not arbitrary nearby services."""
     text = (goal.objective + " " + goal.semantic_query).replace("‌", " ").lower()
+    if "کمپ" in text or "چادر" in text:
+        return ("campground", "natural_feature", "interests")
     if any(word in text for word in ("طبیعت", "جنگل", "کوه", "دریاچه", "آبشار")):
         return ("natural_feature", "park", "garden")
     if any(word in text for word in ("زیارت", "مسجد")):
@@ -148,7 +152,7 @@ async def _discover_nearby(goal: TravelGoal, maps: Any, origin: tuple[float, flo
     try:
         # Half the driving budget is the maximum outbound time; leave a
         # margin for an asymmetric return and for time at the destination.
-        area = await maps.isochrone(origin[0], origin[1], minutes=int(budget * 25))
+        area = await maps.isochrone(origin[0], origin[1], minutes=min(300, int(budget * 25)))
         if area and not (area.get("features") or []):
             area = None
         centers = _search_centers(origin, area)
@@ -231,46 +235,165 @@ async def _destination_descriptions(
     return fallback
 
 
-async def _multiday_stops(goal: TravelGoal, maps: Any, origin: tuple[float, float] | None,
-                          candidates: list[dict], messages: list[Any], budget: float) -> list[dict]:
-    """When the model omitted a real itinerary, group nearby graph candidates."""
-    if origin is None or maps is None or not maps.enabled or _trip_days(goal) < 2:
-        return []
-    latest = goal.objective.rsplit("اصلاح جدید:", 1)[-1]
-    if _wants_one_place(goal) or "برنامه" not in latest:
-        return []
-    pool = [*candidates, *_unused_search_candidates(messages, {row.get("name") for row in candidates})]
-    pool = [row for row in pool if row.get("name") and row.get("latitude") is not None
-            and row.get("longitude") is not None]
+def _place(row: dict) -> tuple[float, float]:
+    return float(row["latitude"]), float(row["longitude"])
+
+
+async def _route_plan(maps: Any, origin: tuple[float, float], origin_name: str,
+                      rows: list[dict], budget: float, optimize: bool = True) -> dict | None:
+    """TSP determines visit order; no-traffic routing verifies every leg."""
+    ordered = list(rows)
+    if optimize and len(ordered) > 1 and hasattr(maps, "trip_order"):
+        points = [origin] + [_place(row) for row in ordered]
+        order = await maps.trip_order(points, round_trip=True, source_is_any_point=False)
+        if order and len(order) == len(points) and order[0] == 0 and sorted(order) == list(range(len(points))):
+            ordered = [ordered[index - 1] for index in order[1:]]
+    points = [origin] + [_place(row) for row in ordered] + [origin]
+    legs = await asyncio.gather(*(maps.route(a, b) for a, b in zip(points, points[1:])),
+                                return_exceptions=True)
+    if any(not isinstance(leg, dict) or leg["duration_hours"] > 6 for leg in legs):
+        return None
+    stops = []
+    total_km = 0.0
+    total_hours = 0.0
+    for position, (row, leg) in enumerate(zip(ordered, legs), 1):
+        total_km += leg["distance_km"]
+        total_hours += leg["duration_hours"]
+        stops.append({"order": position, "name": row["name"], "latitude": row["latitude"],
+                      "longitude": row["longitude"], "leg_distance_km_from_previous": leg["distance_km"],
+                      "leg_duration_hours_from_previous": leg["duration_hours"]})
+    back = legs[-1]
+    if total_hours + back["duration_hours"] > budget:
+        return None
+    days = 1 if budget <= 4 else 2 if budget <= 12 else 3
+    driving_per_day = [0.0] * days
+    for index, stop in enumerate(stops):
+        day = min(days - 1, index * days // len(stops))
+        driving_per_day[day] += stop["leg_duration_hours_from_previous"]
+    driving_per_day[-1] += back["duration_hours"]
+    if days > 1 and any(hours > 6 for hours in driving_per_day):
+        return None
+    total_km += back["distance_km"]
+    total_hours += back["duration_hours"]
+    return {"origin": {"name": origin_name, "latitude": origin[0], "longitude": origin[1]},
+            "stops": stops, "return_leg": {"leg_distance_km_from_previous": back["distance_km"],
+                                            "leg_duration_hours_from_previous": back["duration_hours"]},
+            "total_distance_km": round(total_km, 1), "total_duration_hours": round(total_hours, 2),
+            "round_trip": True}
+
+
+async def _multiday_candidates(goal: TravelGoal, graph: Any, messages: list[Any],
+                               mentioned: list[dict]) -> list[dict]:
+    """Search the graph even when the agent returned no place names this turn."""
+    location = expand_location(goal.region) or None
+    rows = []
+    if graph is not None:
+        try:
+            if "کمپ" in goal.objective or "چادر" in goal.objective:
+                rows = await graph.search_destinations(trip_types=["کمپ"], location=location, limit=25)
+            if len(rows) < 5:
+                rows += await graph.search_destinations(location=location, limit=25)
+        except Exception:
+            pass
+    # For an explicitly requested region, trust region-filtered graph matches
+    # over the model's potentially out-of-region suggestions.
+    if not rows and not goal.region:
+        rows = [*mentioned, *_unused_search_candidates(messages, {r.get("name") for r in mentioned})]
+    seen = set()
+    result = []
+    for row in rows:
+        if not isinstance(row, dict) or not row.get("name") or row.get("latitude") is None or row.get("longitude") is None:
+            continue
+        if row["name"] in seen:
+            continue
+        seen.add(row["name"])
+        result.append(row)
+    return result[:25]
+
+
+async def _discover_multiday_plans(goal: TravelGoal, maps: Any, graph: Any, messages: list[Any],
+                                   mentioned: list[dict], origin: tuple[float, float],
+                                   budget: float) -> list[dict]:
+    pool = await _multiday_candidates(goal, graph, messages, mentioned)
     if len(pool) < 2:
         return []
-    first = pool[0]
-    neighbors = sorted((row for row in pool[1:] if row["name"] != first["name"]),
-                       key=lambda row: haversine_km(first["latitude"], first["longitude"],
-                                                     row["latitude"], row["longitude"]))
-    close = [row for row in neighbors if haversine_km(first["latitude"], first["longitude"],
-                                                      row["latitude"], row["longitude"]) <= 80]
-    for count in range(min(_trip_days(goal), len(close) + 1, 3), 1, -1):
-        chosen = [first, *close[:count - 1]]
-        if count > 2 and hasattr(maps, "trip_order"):
-            points = [origin] + [(row["latitude"], row["longitude"]) for row in chosen]
-            order = await maps.trip_order(points, round_trip=True, source_is_any_point=False)
-            if order and len(order) == len(points) and order[0] == 0 and sorted(order) == list(range(len(points))):
-                chosen = [chosen[index - 1] for index in order[1:]]
-        previous = origin
-        duration = 0.0
-        for row in chosen:
-            destination = (row["latitude"], row["longitude"])
-            leg = await maps.route(previous, destination)
-            if leg is None:
-                break
-            duration += leg["duration_hours"]
-            previous = destination
-        else:
-            back = await maps.route(previous, origin)
-            if back and duration + back["duration_hours"] <= budget:
-                return chosen
-    return []
+    # A few likely anchors, not every graph node: route requests have quotas.
+    camping = "کمپ" in goal.objective or "چادر" in goal.objective
+    anchors = sorted(pool, key=lambda row: (
+        0 if camping and "کمپ" in (row.get("trip_types") or []) else 1 if camping else 0,
+        haversine_km(*origin, *_place(row)),
+    ))[:8]
+    estimates = await asyncio.gather(*(maps.route(origin, _place(row)) for row in anchors), return_exceptions=True)
+    reachable = [(row, leg) for row, leg in zip(anchors, estimates)
+                 if isinstance(leg, dict) and leg["duration_hours"] <= 6]
+    reachable.sort(key=lambda item: (
+        0 if camping and "کمپ" in (item[0].get("trip_types") or []) else 1 if camping else 0,
+        item[1]["duration_hours"],
+    ))
+    plans = []
+    seen = set()
+    for anchor, _ in reachable[:5]:
+        nearby = sorted((row for row in pool if row["name"] != anchor["name"]
+                         and haversine_km(*_place(anchor), *_place(row)) <= 80),
+                        key=lambda row: haversine_km(*_place(anchor), *_place(row)))
+        if not nearby and graph is not None:
+            try:
+                nearby = [row for row in await graph.find_destinations_near(anchor.get("id") or anchor["name"], 80)
+                          if row.get("latitude") is not None and row.get("longitude") is not None]
+            except Exception:
+                pass
+        for count in range(min(_trip_days(goal), len(nearby) + 1, 3), 1, -1):
+            chosen = [anchor, *nearby[:count - 1]]
+            key = frozenset(row["name"] for row in chosen)
+            if len(key) != len(chosen) or key in seen:
+                continue
+            seen.add(key)
+            plan = await _route_plan(maps, origin, goal.origin, chosen, budget)
+            if plan:
+                plans.append(plan)
+                if len(plans) == 2:
+                    return plans
+    return plans
+
+
+async def _render_multiday_plans(
+    goal: TravelGoal, plans: list[dict], rows: list[dict], graph: Any,
+    formatter: Callable[[dict[str, dict]], Awaitable[dict[str, str]]] | None,
+) -> tuple[str, dict | None]:
+    names = {stop["name"] for plan in plans for stop in plan["stops"]}
+    data = [next((row for row in rows if row.get("name") == name), {"name": name}) for name in names]
+    cards = await _destination_descriptions(data, graph, formatter)
+    lines = []
+    for number, plan in enumerate(plans, 1):
+        lines.append(f"### 🌿 برنامهٔ {number} — سفر {goal.duration}" if len(plans) > 1
+                     else f"### 🌿 برنامهٔ سفر {goal.duration}")
+        lines.append("**ترتیب بازدید:** " + " ← ".join(
+            [plan["origin"]["name"]] + [stop["name"] for stop in plan["stops"]]
+            + [plan["origin"]["name"]]
+        ))
+        last_day = 0
+        days = _trip_days(goal)
+        for index, stop in enumerate(plan["stops"]):
+            day = min(days, index * days // len(plan["stops"]) + 1)
+            if day != last_day:
+                lines.append(f"**📅 روز {day} — بازدید و گردش**")
+            last_day = day
+            lines.append(f"#### {stop['name']}")
+            lines.append(cards[stop["name"]])
+            lines.append(f"- **رانندگی از توقف قبلی:** {stop['leg_distance_km_from_previous']} کیلومتر، "
+                         f"{stop['leg_duration_hours_from_previous']} ساعت")
+        if days > last_day:
+            lines.append(f"**📅 روز {days} — بازگشت**")
+        if "کمپ" in goal.objective or "چادر" in goal.objective:
+            lines.append("**شب‌مانی:** پیش از حرکت، مجاز بودن کمپ و امکانات محل شب‌مانی را بررسی کنید.")
+        lines.append(f"- **بازگشت به {plan['origin']['name']}:** "
+                     f"{plan['return_leg']['leg_distance_km_from_previous']} کیلومتر، "
+                     f"{plan['return_leg']['leg_duration_hours_from_previous']} ساعت\n"
+                     f"- **مجموع رانندگی:** {plan['total_distance_km']} کیلومتر، "
+                     f"{plan['total_duration_hours']} ساعت (بدون ترافیک)")
+    lines.append("زمان بازدید و استراحت به زمان رانندگی اضافه می‌شود؛ وضعیت روز سفر را پیش از حرکت بررسی کنید.")
+    # A single itinerary field cannot encode several independent alternatives.
+    return "\n\n".join(lines), plans[0] if len(plans) == 1 else None
 
 
 async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[Any], reply: str,
@@ -302,75 +425,42 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
     else:
         origin = None
 
-    if (itinerary is None or len(itinerary.stops) < 2) and origin is not None:
-        from src.api.schemas import Itinerary
-
-        chosen = await _multiday_stops(goal, maps, origin, candidates, messages, budget)
-        if chosen:
-            for row in chosen:
-                if row["name"] not in {item.get("name") for item in candidates}:
-                    candidates.append(row)
-            itinerary = Itinerary.model_validate({
-                "origin": {"name": origin_name, "latitude": origin[0], "longitude": origin[1]},
-                "stops": [{"order": i, "name": row["name"], "latitude": row["latitude"],
-                           "longitude": row["longitude"]} for i, row in enumerate(chosen, 1)],
-            })
-
-    if itinerary is not None and len(itinerary.stops) > 1 and not _wants_one_place(goal):
-        legs = []
-        previous = origin
-        if maps is not None and maps.enabled and previous is not None:
-            for stop in itinerary.stops:
-                point = (stop.latitude, stop.longitude)
-                leg = await maps.route(previous, point)
-                if leg is None:
+    if _trip_days(goal) >= 2 and not _wants_one_place(goal) and origin is not None and maps and maps.enabled:
+        plans = []
+        if itinerary is not None and len(itinerary.stops) > 1:
+            rows = [{"name": stop.name, "latitude": stop.latitude, "longitude": stop.longitude}
+                    for stop in itinerary.stops]
+            verified = await _route_plan(maps, origin, origin_name, rows, budget)
+            if verified:
+                plans.append(verified)
+        if len(plans) < 2:
+            discovered_plans = await _discover_multiday_plans(goal, maps, graph, messages, candidates, origin, budget)
+            for plan in discovered_plans:
+                places = frozenset(stop["name"] for stop in plan["stops"])
+                if places not in [frozenset(stop["name"] for stop in current["stops"]) for current in plans]:
+                    plans.append(plan)
+                if len(plans) == 2:
                     break
-                legs.append(leg)
-                previous = point
-            if len(legs) == len(itinerary.stops):
-                back = await maps.route(previous, origin)
-                if back is not None:
-                    total = sum(leg["duration_hours"] for leg in legs) + back["duration_hours"]
-                    if total <= budget:
-                        route = " ← ".join([origin_name] + [stop.name for stop in itinerary.stops] + [origin_name])
-                        rows = [next((row for row in candidates if row.get("name") == stop.name),
-                                     {"name": stop.name}) for stop in itinerary.stops]
-                        descriptions = await _destination_descriptions(rows, graph, description_formatter)
-                        days = _trip_days(goal)
-                        lines = [f"### 🌿 برنامهٔ سفر {goal.duration}",
-                                 f"**ترتیب بازدید:** {route}"]
-                        stops = []
-                        last_day = 0
-                        for index, (stop, leg) in enumerate(zip(itinerary.stops, legs)):
-                            day = min(days, index * days // len(itinerary.stops) + 1)
-                            if days > 1 and day != last_day:
-                                lines.append(f"### 📅 روز {day} — بازدید و گردش")
-                            last_day = day
-                            lines.append(f"#### {stop.name}")
-                            lines.append(descriptions[stop.name])
-                            lines.append(f"- **مسیر از توقف قبلی:** {leg['distance_km']} کیلومتر، "
-                                         f"{leg['duration_hours']} ساعت رانندگی")
-                            stops.append({"order": stop.order, "name": stop.name,
-                                          "latitude": stop.latitude, "longitude": stop.longitude,
-                                          "leg_distance_km_from_previous": leg["distance_km"],
-                                          "leg_duration_hours_from_previous": leg["duration_hours"]})
-                        if days > last_day:
-                            lines.append(f"### 📅 روز {days} — بازگشت و استراحت")
-                        lines.append(f"### 🚗 جمع‌بندی مسیر\n- **بازگشت به {origin_name}:** "
-                                     f"{back['distance_km']} کیلومتر، {back['duration_hours']} ساعت\n"
-                                     f"- **مجموع رانندگی رفت‌وبرگشت:** "
-                                     f"{round(sum(leg['distance_km'] for leg in legs) + back['distance_km'], 1)} "
-                                     f"کیلومتر، {total:.2f} ساعت\nزمان بازدید، استراحت و ترافیک زنده جداست.")
-                        verified_route = {
-                            "origin": {"name": origin_name, "latitude": origin[0], "longitude": origin[1]},
-                            "stops": stops,
-                            "return_leg": {"leg_distance_km_from_previous": back["distance_km"],
-                                           "leg_duration_hours_from_previous": back["duration_hours"]},
-                            "total_distance_km": round(sum(leg["distance_km"] for leg in legs) + back["distance_km"], 1),
-                            "total_duration_hours": round(total, 2), "round_trip": True,
-                        }
-                        return "\n\n".join(lines), verified_route
-        return ("مسیر ترکیبی این مقصدها با زمان سفر شما تأیید نشد. بهتر است تعداد توقف‌ها را کمتر کنیم یا مقصدهای نزدیک‌تری انتخاب کنیم.", None)
+        if not plans:
+            nearby = await _discover_nearby(goal, maps, origin, budget, set())
+            nearby_rows = [row for row, _, _, _ in nearby]
+            if goal.region == "شمال":
+                nearby_rows = [row for row in nearby_rows if row["latitude"] > origin[0] + 0.3]
+            if len(nearby_rows) >= 2:
+                plan = await _route_plan(maps, origin, origin_name, nearby_rows[:min(_trip_days(goal), 3)], budget)
+                if plan:
+                    plans.append(plan)
+        if plans:
+            return await _render_multiday_plans(goal, plans, candidates, graph, description_formatter)
+
+    if itinerary is not None and len(itinerary.stops) > 1 and not _wants_one_place(goal) and _trip_days(goal) == 1:
+        if origin is not None and maps is not None and maps.enabled:
+            rows = [{"name": stop.name, "latitude": stop.latitude, "longitude": stop.longitude}
+                    for stop in itinerary.stops]
+            plan = await _route_plan(maps, origin, origin_name, rows, budget, optimize=False)
+            if plan:
+                return await _render_multiday_plans(goal, [plan], candidates, graph, description_formatter)
+        return ("مسیر ترکیبی این توقف‌ها با فرصت یک‌روزه سازگار نیست؛ گزینه‌های نزدیک‌تر را بررسی می‌کنم.", None)
 
     feasible = []
     verified = 0
@@ -404,15 +494,20 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
 
     discovered = False
     if not feasible and origin is not None and maps is not None and maps.enabled:
-        feasible = await _discover_nearby(goal, maps, origin, budget, {r.get("name") for r in candidates})
+        if not goal.region or goal.region == "شمال":
+            feasible = await _discover_nearby(goal, maps, origin, budget, {r.get("name") for r in candidates})
+            if goal.region == "شمال":
+                feasible = [option for option in feasible if option[0]["latitude"] > origin[0] + 0.3]
         discovered = bool(feasible)
 
     if not feasible:
+        area = f" در {goal.region}" if goal.region else ""
         if verified:
-            return (f"با درنظرگرفتن مسیر رفت‌وبرگشت از {origin_name}، مقصدهای بررسی‌شده برای سفر {goal.duration} زمان زیادی در خودرو می‌گیرند. برای اینکه فرصت کافی برای گردش و استراحت بماند، بهتر است مقصد نزدیک‌تری انتخاب کنیم. دوست دارید چند گزینه نزدیک‌تر پیشنهاد بدهم؟", None)
-        if not candidates:
-            return ("برای پیشنهاد سفر کوتاه باید اول مسیر رفت‌وبرگشت یک مقصد مشخص را بررسی کنم. مقصد یا محدودهٔ دلخواهتان را بگویید تا گزینه‌ای متناسب با زمانتان پیدا کنیم.", None)
-        return ("برای این سفر کوتاه فعلاً زمان مسیر رفت‌وبرگشت را نمی‌توانم با دادهٔ مسیریابی تأیید کنم؛ نمی‌خواهم مسیر دور را یک‌روزه پیشنهاد کنم. مبدأ و مقصد دقیق را بگویید یا کمی بعد دوباره امتحان کنیم.", None)
+            return (f"مسیر رفت‌وبرگشت مقصدهای پیدا‌شده{area} برای سفر {goal.duration} با فرصت بازدید و استراحت سازگار نبود. "
+                    "در میان مقصدهای نزدیک‌تر و مسیرهای قابل تأیید هم گزینهٔ مناسبی پیدا نکردم؛ "
+                    "اگر شهر مشخصی مدنظرتان است بگویید تا همان محدوده را بررسی کنم.", None)
+        return (f"فعلاً نتوانستم برای سفر {goal.duration}{area} مسیر رفت‌وبرگشت و توقف‌های قابل تأیید پیدا کنم. "
+                "اگر شهر یا محدودهٔ دقیق‌تری مدنظرتان است بگویید تا همان‌جا را بررسی کنم.", None)
 
     # The model turns graph facts into short visit/activity/facility cards;
     # road figures and destination selection remain deterministic.
@@ -421,19 +516,18 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
     )
 
     # List alternatives independently: never fabricate a combined itinerary.
-    lines = [f"### 🌿 پیشنهادهای سفر {goal.duration}",
-             f"این‌ها **برنامه‌های جایگزین** از {origin_name} هستند؛ قرار نیست همه را در یک سفر بروید."]
+    lines = [f"### 🌿 برنامه‌های پیشنهادی سفر {goal.duration}"]
     for index, (row, outbound, inbound, drive) in enumerate(feasible[:4], 1):
         lines.append(f"#### گزینهٔ {index}: {row['name']}")
         lines.append(formatted[row["name"]])
-        if _trip_days(goal) == 1:
-            lines.append("- **طرح یک‌روزه:** صبح حرکت، وقت‌گذاشتن برای بازدید و استراحت، و بازگشت در پایان روز.")
         lines.append(
-            f"- **رفت:** {outbound['distance_km']} کیلومتر، {outbound['duration_hours']} ساعت\n"
-            f"- **برگشت:** {inbound['distance_km']} کیلومتر، {inbound['duration_hours']} ساعت\n"
-            f"- **مجموع رانندگی:** {drive:.2f} ساعت"
+            f"- **رانندگی از {origin_name}:** رفت {outbound['distance_km']} کیلومتر، "
+            f"{outbound['duration_hours']} ساعت؛ برگشت {inbound['distance_km']} کیلومتر، "
+            f"{inbound['duration_hours']} ساعت؛ مجموع {drive:.2f} ساعت."
         )
-    lines.append("### 🚗 نکات مسیر\nاین زمان‌ها شامل بازدید، استراحت و ترافیک زنده نیستند؛ پیش از حرکت شرایط مسیر را بررسی کنید.")
+    if _trip_days(goal) == 1:
+        lines.append("**📅 الگوی یک‌روزه:** حرکت صبح، بازدید و استراحت در مقصد انتخابی، بازگشت تا پایان روز.")
+    lines.append("**🚗 نکتهٔ مسیر:** زمان‌ها بدون ترافیک و جدا از بازدید و استراحت‌اند؛ شرایط روز سفر را بررسی کنید.")
     if discovered:
         lines.append("دربارهٔ امکانات و آسان‌بودن مسیر پیاده‌روی این مکان‌ها اطلاعات تأییدشده ندارم؛ اگر همراه کودک یا سالمند هستید، پیش از انتخاب بررسی کنید.")
     # A single verified option is a usable map itinerary. Several independent

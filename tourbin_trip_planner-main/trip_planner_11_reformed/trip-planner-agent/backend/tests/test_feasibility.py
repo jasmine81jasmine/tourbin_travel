@@ -26,6 +26,12 @@ def test_new_multiday_request_overrides_old_single_place_request():
     assert _wants_one_place(TravelGoal(objective="همهٔ جاهای قبلی را رفتم؛ اصلاح جدید: جای جدید معرفی کن"))
 
 
+def test_two_and_three_day_driving_budgets_are_per_trip_not_per_day():
+    assert driving_budget(TravelGoal(duration="دو روز")) == 12
+    assert driving_budget(TravelGoal(duration="سه روز")) == 18
+    assert driving_budget(TravelGoal(duration="آخر هفته")) == 12
+
+
 @pytest.mark.asyncio
 async def test_long_graph_article_becomes_short_plan_card():
     description = "این مقصد طبیعت زیبایی دارد. " + "این جمله طولانی هم باید کامل بماند " * 20
@@ -41,9 +47,9 @@ async def test_long_graph_article_becomes_short_plan_card():
 
     reply, _ = await screen_short_trip(TravelGoal(duration="یک روز"), FastMaps(), messages, "دیزین")
     assert description.strip() not in reply
-    assert "**چرا این مقصد؟** این مقصد طبیعت زیبایی دارد." in reply
+    assert "**ویژگی‌ها:** این مقصد طبیعت زیبایی دارد." in reply
     assert "### 🌿" in reply and "#### گزینهٔ 1: دیزین" in reply
-    assert "### 🚗" in reply and "**مجموع رانندگی:**" in reply
+    assert "**رانندگی از تهران:**" in reply and "**📅 الگوی یک‌روزه:**" in reply
 
 
 @pytest.mark.asyncio
@@ -60,14 +66,14 @@ async def test_short_trip_uses_formatter_only_for_description_not_route():
 
     async def formatter(descriptions):
         assert descriptions["درکه"]["description"] == "متن کامل مقصد."
-        return {"درکه": "- **چرا این مقصد؟** فضای خوبی برای گردش دارد.\n"
-                "- **پیشنهاد بازدید** صبح در مسیر پایین‌دست قدم بزنید."}
+        return {"درکه": "- **ویژگی‌ها:** رودخانه و کوچه‌باغ دارد.\n"
+                "- **امکانات:** کافه‌های اطراف دارد."}
 
     reply, route = await screen_short_trip(
         TravelGoal(duration="یک روز"), FastMaps(), messages, "درکه",
         description_formatter=formatter,
     )
-    assert "**پیشنهاد بازدید**" in reply
+    assert "**ویژگی‌ها:**" in reply and "**امکانات:**" in reply
     assert "16.1 کیلومتر" in reply
     assert route["stops"][0]["name"] == "درکه"
 
@@ -115,7 +121,7 @@ async def test_two_individually_near_stops_can_still_exceed_combined_budget():
             return {"distance_km": 100, "duration_hours": 1.5}
 
     reply, _ = await screen_short_trip(TravelGoal(duration="یک روز"), SlowLegs(), [], "مقصد اول و مقصد دوم", itinerary)
-    assert "تأیید نشد" in reply  # three legs: 4.5h > 4h budget
+    assert "سازگار نیست" in reply  # three legs: 4.5h > 4h budget
 
 
 @pytest.mark.asyncio
@@ -137,9 +143,8 @@ async def test_one_nearby_place_request_does_not_collapse_four_options_to_route_
 
     async def formatter(descriptions):
         assert set(descriptions) == set(names)
-        return {name: f"- **چرا این مقصد؟** طبیعت و فضای باز دارد.\n"
-                      f"- **پیشنهاد بازدید** برای دیدن {name} و استراحت وقت بگذارید.\n"
-                      "- **امکانات** امکانات ثبت‌شده را پیش از حرکت بررسی کنید."
+        return {name: f"- **ویژگی‌ها:** رودخانهٔ {name} و فضای باز دارد.\n"
+                      "- **امکانات:** امکانات ثبت‌شده را پیش از حرکت بررسی کنید."
                 for name in descriptions}
 
     reply, route = await screen_short_trip(
@@ -151,9 +156,11 @@ async def test_one_nearby_place_request_does_not_collapse_four_options_to_route_
     for name in names:
         assert name in reply
         assert f"شرح کامل و خواندنی {name}. نکات بازدید {name}." not in reply
-        assert f"برای دیدن {name} و استراحت وقت بگذارید." in reply
+        assert f"رودخانهٔ {name} و فضای باز دارد." in reply
     assert reply.count("\n#### گزینهٔ ") == 4
     assert "تهران ←" not in reply
+    assert "این‌ها **برنامه‌های جایگزین**" not in reply
+    assert reply.count("الگوی یک‌روزه") == 1
 
 
 @pytest.mark.asyncio
@@ -175,9 +182,8 @@ async def test_real_multistop_trip_keeps_descriptions_and_verified_itinerary():
             return {"name": name, "description": f"متن کامل {name}."}
 
     async def formatter(descriptions):
-        return {name: f"- **چرا این مقصد؟** فضای سبز {name}.\n"
-                      "- **پیشنهاد بازدید** صبح پیاده‌روی کنید.\n"
-                      "- **امکانات** امکانات را پیش از حرکت بررسی کنید."
+        return {name: f"- **ویژگی‌ها:** فضای سبز {name}.\n"
+                      "- **امکانات:** امکانات را پیش از حرکت بررسی کنید."
                 for name in descriptions}
 
     reply, route = await screen_short_trip(
@@ -186,7 +192,7 @@ async def test_real_multistop_trip_keeps_descriptions_and_verified_itinerary():
         description_formatter=formatter, graph=Graph(),
     )
     assert "متن کامل درکه." not in reply and "متن کامل دربند." not in reply
-    assert "**پیشنهاد بازدید**" in reply and "0.90 ساعت" in reply
+    assert "**ویژگی‌ها:**" in reply and "0.9 ساعت" in reply
     assert [s["name"] for s in route["stops"]] == ["درکه", "دربند"]
     assert route["total_duration_hours"] == .9 and route["round_trip"] is True
 
@@ -206,19 +212,42 @@ async def test_two_day_trip_has_two_day_sections_with_ordered_stops():
             return {"distance_km": 15.0, "duration_hours": 1.0}
 
     async def formatter(destinations):
-        return {name: "- **چرا این مقصد؟** طبیعت زیبایی دارد.\n"
-                      "- **پیشنهاد بازدید** پیاده‌روی و استراحت.\n"
-                      "- **امکانات** اطلاعات دقیق در دسترس نیست."
+        return {name: "- **ویژگی‌ها:** طبیعت زیبایی دارد.\n"
+                      "- **امکانات:** اطلاعات دقیق در دسترس نیست."
                 for name in destinations}
 
     reply, route = await screen_short_trip(
         TravelGoal(duration="دو روز", objective="برنامهٔ سفر دو روزه با چند توقف بده"),
         FastMaps(), [], "مقصد الف و مقصد ب", itinerary, description_formatter=formatter,
     )
-    assert "### 📅 روز 1" in reply and "### 📅 روز 2" in reply
+    assert "**📅 روز 1" in reply and "**📅 روز 2" in reply
     assert reply.index("#### مقصد الف") < reply.index("#### مقصد ب")
     assert route["total_duration_hours"] == 3.0
     assert route["return_leg"]["leg_duration_hours_from_previous"] == 1.0
+
+
+@pytest.mark.asyncio
+async def test_tsp_order_is_reflected_in_two_day_text_and_itinerary():
+    itinerary = Itinerary.model_validate({
+        "origin": {"name": "تهران", "latitude": 35.6892, "longitude": 51.389},
+        "stops": [
+            {"order": 1, "name": "مقصد الف", "latitude": 36.1, "longitude": 51.4},
+            {"order": 2, "name": "مقصد ب", "latitude": 36.12, "longitude": 51.42},
+        ],
+    })
+
+    class Maps(_Maps):
+        async def trip_order(self, waypoints, **kwargs):
+            return [0, 2, 1]
+
+        async def route(self, origin, destination):
+            return {"distance_km": 15.0, "duration_hours": 1.0}
+
+    goal = TravelGoal(duration="دو روز", objective="برنامهٔ دو روزه با چند مقصد")
+    reply, route = await screen_short_trip(goal, Maps(), [], "مقصد الف و مقصد ب", itinerary)
+    assert [stop["name"] for stop in route["stops"]] == ["مقصد ب", "مقصد الف"]
+    assert reply.index("#### مقصد ب") < reply.index("#### مقصد الف")
+    assert route["total_duration_hours"] == 3.0
 
 
 @pytest.mark.asyncio
@@ -239,9 +268,83 @@ async def test_two_day_plan_builds_nearby_multistop_route_when_model_skips_map_t
         TravelGoal(duration="دو روز", objective="برای دو روز برنامهٔ سفر با چند مقصد بده"),
         FastMaps(), messages, "مقصد الف را پیشنهاد می‌کنم",
     )
-    assert "### 📅 روز 1" in reply and "### 📅 روز 2" in reply
+    assert "**📅 روز 1" in reply and "**📅 روز 2" in reply
     assert "#### مقصد الف" in reply and "#### مقصد ب" in reply
     assert route["round_trip"] is True and len(route["stops"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_two_day_camping_discovers_northern_clusters_without_named_destination():
+    places = [
+        {"id": "a", "name": "جنگل الف", "latitude": 36.4, "longitude": 51.2, "province": "مازندران", "trip_types": ["کمپ"]},
+        {"id": "b", "name": "دریاچه ب", "latitude": 36.43, "longitude": 51.23, "province": "مازندران", "trip_types": ["کمپ"]},
+        {"id": "c", "name": "روستای ج", "latitude": 36.47, "longitude": 51.25, "province": "مازندران", "trip_types": ["کمپ"]},
+    ]
+
+    class Graph:
+        calls = []
+
+        async def search_destinations(self, **kwargs):
+            self.calls.append(kwargs)
+            return places
+
+        async def get_destination_details(self, name):
+            row = next(row for row in places if row["id"] == name or row["name"] == name)
+            return {**row, "description": f"طبیعت سرسبز {row['name']} دارد.", "facilities_level": "محدود"}
+
+    class Maps(_Maps):
+        tsp_calls = 0
+
+        async def trip_order(self, waypoints, **kwargs):
+            self.tsp_calls += 1
+            return list(range(len(waypoints)))
+
+        async def route(self, origin, destination):
+            hours = 4.5 if 35.6892 in (origin[0], destination[0]) else .5
+            return {"distance_km": hours * 50, "duration_hours": hours}
+
+    graph, maps = Graph(), Maps()
+    goal = TravelGoal(duration="دو روز", region="شمال", objective="میخوام دو روز آخر هفته برم کمپ؛ اصلاح جدید: پیشنهاد بده")
+    reply, itinerary = await screen_short_trip(goal, maps, [], "جایی پیدا نکردم", graph=graph)
+    assert graph.calls[0]["location"] == ["گیلان", "مازندران", "گلستان"]
+    assert graph.calls[0]["trip_types"] == ["کمپ"]
+    assert "### 🌿 برنامهٔ 1" in reply and "### 🌿 برنامهٔ 2" in reply
+    assert "**📅 روز 1" in reply and "**📅 روز 2" in reply
+    assert "جنگل الف" in reply and "دریاچه ب" in reply
+    assert "مجـاز" not in reply  # no invented campsite confirmation
+    assert "مجاز بودن کمپ" in reply
+    assert "پیشنهاد بده" not in reply
+    assert itinerary is None  # two independent complete routes cannot fit one itinerary field
+    assert maps.tsp_calls >= 2
+
+
+@pytest.mark.asyncio
+async def test_three_day_plan_accepts_longer_verified_round_trip():
+    places = [
+        {"id": str(i), "name": f"مقصد {i}", "latitude": 36.3 + i * .02,
+         "longitude": 51.2 + i * .02, "categories": ["طبیعت"]} for i in range(3)
+    ]
+
+    class Graph:
+        async def search_destinations(self, **kwargs):
+            return places
+
+        async def get_destination_details(self, key):
+            row = next(row for row in places if key in (row["id"], row["name"]))
+            return {**row, "description": "این مقصد طبیعت سرسبز دارد."}
+
+    class Maps(_Maps):
+        async def trip_order(self, waypoints, **kwargs):
+            return list(range(len(waypoints)))
+
+        async def route(self, origin, destination):
+            hours = 5.5 if 35.6892 in (origin[0], destination[0]) else .5
+            return {"distance_km": hours * 50, "duration_hours": hours}
+
+    goal = TravelGoal(duration="سه روز", objective="سه روز برای یک سفر طبیعت گردی وقت دارم")
+    reply, _ = await screen_short_trip(goal, Maps(), [], "پیشنهادی ندارم", graph=Graph())
+    assert "**📅 روز 1" in reply and "**📅 روز 2" in reply and "**📅 روز 3" in reply
+    assert "مجموع رانندگی" in reply and "12.0 ساعت" in reply
 
 
 @pytest.mark.asyncio
