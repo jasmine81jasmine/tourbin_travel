@@ -13,8 +13,9 @@ from neo4j_agent_memory.integrations.pydantic_ai import record_agent_trace
 from src.adapters.neshan_client import get_neshan_client
 from src.agent.agent import get_trip_planner_agent, update_travel_goal
 from src.agent.dependencies import AgentDeps
+from src.agent.feasibility import ground_route_text, screen_short_trip
 from src.agent.goals import TravelGoal
-from src.agent.tools import build_itinerary_from_coords
+from src.agent.tools import build_trip_map
 from src.api.schemas import ChatRequest, ChatResponse, Itinerary, SessionResponse
 from src.memory import linking
 from src.memory.client import get_embedding_provider, get_memory_client
@@ -292,6 +293,52 @@ async def chat(
         result = await agent.run(request.message, deps=deps, message_history=message_history)
         reply_text = result.output if hasattr(result, "output") else str(result.data)
 
+        itinerary = None
+        if deps.itinerary_result and deps.itinerary_result.get("used_real_routing"):
+            try:
+                itinerary = Itinerary.model_validate(deps.itinerary_result)
+            except Exception:
+                logger.warning("Could not serialize itinerary_result", exc_info=True)
+        elif not _is_only_greeting(request.message):
+            try:
+                fallback_stops = linking.extract_finalized_destination_coords(result.new_messages())
+                # Use the same road-routing tool as a normal plan, not a
+                # straight-line one-way estimate attached after the reply.
+                if fallback_stops:
+                    fallback = await build_trip_map(
+                        type("Context", (), {"deps": deps})(), fallback_stops,
+                        origin={"name": travel_goal.origin} if travel_goal else None,
+                        round_trip=bool(travel_goal and travel_goal.duration and "روز" in travel_goal.duration),
+                    )
+                    if fallback.get("used_real_routing"):
+                        itinerary = Itinerary.model_validate(fallback)
+            except Exception:
+                logger.warning("Could not build fallback itinerary", exc_info=True)
+
+        checked = None if _is_only_greeting(request.message) else await screen_short_trip(
+            travel_goal, deps.maps, result.new_messages(), reply_text, itinerary
+        )
+        if checked is not None:
+            reply_text, _ = checked
+            # Alternatives aren't a single combined route. Retain map data
+            # only when exactly the verified stop was finalized.
+            if (itinerary is None or any(s.name not in reply_text for s in itinerary.stops)
+                    or reply_text.count("\n- ") > 1):
+                itinerary = None
+            elif itinerary:
+                try:
+                    revised = await build_trip_map(
+                        type("Context", (), {"deps": deps})(),
+                        [{"name": s.name, "latitude": s.latitude, "longitude": s.longitude} for s in itinerary.stops],
+                        origin=itinerary.origin, round_trip=True,
+                    )
+                    itinerary = Itinerary.model_validate(revised) if revised.get("used_real_routing") else None
+                except Exception:
+                    logger.warning("Could not validate return leg", exc_info=True)
+                    itinerary = None
+        elif itinerary is not None:
+            reply_text = ground_route_text(reply_text, itinerary)
+
         if memory_client is not None:
             await memory_client.short_term.add_message(
                 session_id=session_id,
@@ -352,33 +399,6 @@ async def chat(
                         logger.info("Resolved %d LOCATION entities to destinations", entities_linked)
             except Exception:
                 logger.exception("Failed to record/link reasoning trace (non-fatal)")
-
-        itinerary = None
-        if deps.itinerary_result:
-            try:
-                itinerary = Itinerary.model_validate(deps.itinerary_result)
-            except Exception:
-                logger.warning("Could not serialize itinerary_result", exc_info=True)
-        elif not _is_only_greeting(request.message):
-            # Narrow fallback, single-destination only: if the agent named
-            # exactly one concrete place this turn (via
-            # tool_get_destination_details) but didn't itself call
-            # tool_build_trip_map (prompt says it must, but LLM tool-calling
-            # isn't 100% guaranteed), reconstruct a simple, straight-line
-            # single-stop itinerary so the response still carries map data.
-            # extract_finalized_destination_coords deliberately returns []
-            # (no itinerary) whenever zero or *more than one* destination
-            # was touched this turn -- a multi-stop itinerary must always
-            # come from tool_build_trip_map's real TSP ordering + routing,
-            # never from chaining together whatever destinations happened to
-            # be looked up (which previously merged unrelated alternative
-            # suggestions into one bogus route -- see linking.py docstring).
-            try:
-                fallback_stops = linking.extract_finalized_destination_coords(result.new_messages())
-                if fallback_stops:
-                    itinerary = Itinerary.model_validate(build_itinerary_from_coords(fallback_stops))
-            except Exception:
-                logger.warning("Could not build fallback itinerary", exc_info=True)
 
         return ChatResponse(reply=reply_text, session_id=session_id, user_id=user_id, itinerary=itinerary)
     except ModelAPIError as e:

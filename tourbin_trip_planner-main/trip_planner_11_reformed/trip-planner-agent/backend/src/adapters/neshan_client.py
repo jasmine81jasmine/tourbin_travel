@@ -97,6 +97,11 @@ class NeshanClient:
         if not routes:
             return None
         legs = routes[0].get("legs") or []
+        if not legs or any(
+            (leg.get("distance") or {}).get("value") is None
+            or (leg.get("duration") or {}).get("value") is None for leg in legs
+        ):
+            return None
         distance_m = sum((leg.get("distance") or {}).get("value") or 0 for leg in legs)
         duration_s = sum((leg.get("duration") or {}).get("value") or 0 for leg in legs)
         return {"distance_km": round(distance_m / 1000.0, 1), "duration_hours": round(duration_s / 3600.0, 2)}

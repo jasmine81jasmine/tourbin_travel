@@ -278,7 +278,9 @@ async def build_trip_map(
     origin = origin or DEFAULT_ORIGIN
     origin_coords = await _resolve_coordinates(
         ctx, origin.get("name", "مبدا"), latitude=origin.get("latitude"), longitude=origin.get("longitude")
-    ) or {"latitude": DEFAULT_ORIGIN["latitude"], "longitude": DEFAULT_ORIGIN["longitude"]}
+    )
+    if origin_coords is None:
+        return {"error": "origin coordinates could not be resolved"}
 
     resolved: list[dict[str, Any]] = []
     unresolved: list[str] = []
@@ -311,7 +313,7 @@ async def build_trip_map(
         tsp_order = await ctx.deps.maps.trip_order(
             waypoints, round_trip=round_trip, source_is_any_point=False, last_is_any_point=True
         )
-        if tsp_order:
+        if tsp_order and len(tsp_order) == len(waypoints) and sorted(tsp_order) == list(range(len(waypoints))) and tsp_order[0] == 0:
             # index 0 in `waypoints` is the origin -- drop it, shift the rest back to 0-based `resolved` indices.
             order = [i - 1 for i in tsp_order if i != 0]
         else:
@@ -324,6 +326,7 @@ async def build_trip_map(
     prev = origin_coords
     total_distance_km = 0.0
     total_duration_hours = 0.0
+    real_legs = True
     for position, idx in enumerate(order, start=1):
         stop = resolved[idx]
         leg = None
@@ -332,6 +335,7 @@ async def build_trip_map(
                 (prev["latitude"], prev["longitude"]), (stop["latitude"], stop["longitude"])
             )
         if leg is None:
+            real_legs = False
             dist = haversine_km(prev["latitude"], prev["longitude"], stop["latitude"], stop["longitude"])
             leg = {"distance_km": round(dist, 1), "duration_hours": round(estimate_duration_hours(dist), 2)}
         total_distance_km += leg["distance_km"]
@@ -368,6 +372,7 @@ async def build_trip_map(
                 (origin_coords["latitude"], origin_coords["longitude"]),
             )
         if leg is None:
+            real_legs = False
             dist = haversine_km(
                 last_stop["latitude"], last_stop["longitude"], origin_coords["latitude"], origin_coords["longitude"]
             )
@@ -387,7 +392,7 @@ async def build_trip_map(
         "total_duration_hours": round(total_duration_hours, 2),
         "round_trip": round_trip,
         "unresolved_stops": unresolved,
-        "used_real_routing": bool(ctx.deps.maps is not None and ctx.deps.maps.enabled),
+        "used_real_routing": real_legs,
     }
     ctx.deps.itinerary_result = result
     return result
