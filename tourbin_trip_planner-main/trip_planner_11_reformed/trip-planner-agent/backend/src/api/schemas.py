@@ -17,14 +17,30 @@ class ItineraryStop(BaseModel):
     leg_duration_hours_from_previous: float | None = None
 
 
+class ReturnLeg(BaseModel):
+    """The last-stop -> origin leg, present only when `round_trip` is true.
+    Kept separate from `stops` (rather than appending origin as a fake stop)
+    since it has no `name`/`order` of its own -- it's the same origin point
+    already given in `origin`. A map view can draw this as the final segment
+    of the route back to `origin`'s coordinates."""
+
+    leg_distance_km_from_previous: float
+    leg_duration_hours_from_previous: float
+
+
 class Itinerary(BaseModel):
     """Map-ready summary of the plan's destinations, order, and real drive
     distances/times, when the agent finalized a concrete itinerary this
     turn (see tool_build_trip_map). Absent/omitted otherwise -- e.g. plain
-    small talk or a question that didn't reach a concrete plan."""
+    small talk or a question that didn't reach a concrete plan.
+
+    `total_distance_km`/`total_duration_hours` include the return leg
+    whenever `round_trip` is true -- new consumers should treat these two
+    fields as "everything driven, out and back" rather than one-way-only."""
 
     origin: dict[str, Any] | None = None
     stops: list[ItineraryStop] = Field(default_factory=list)
+    return_leg: ReturnLeg | None = None
     total_distance_km: float | None = None
     total_duration_hours: float | None = None
     round_trip: bool = False

@@ -187,9 +187,10 @@ Beyond the graph and your own knowledge, you have map tools backed by real
 road/geocoding data: `tool_build_trip_map` (visiting order + real drive
 distance/duration between stops), `tool_check_reachable_within_time`
 (filter candidates by a driving-time budget), and `tool_find_nearby_amenities`
-(restaurants/hotels/parking near a stop). Prefer coordinates already present
-on a destination (from search/details results) over anything else; these
-tools only geocode by name when nothing else has coordinates.
+(restaurants, hotels, parking, but also natural/historic/religious points of
+interest near a stop -- see below). Prefer coordinates already present on a
+destination (from search/details results) over anything else; these tools
+only geocode by name when nothing else has coordinates.
 
 - When the user has a tight or explicit time budget (a day trip, "فقط ۲ روز
   وقت دارم", etc.) and you're comparing multiple candidate destinations,
@@ -206,17 +207,51 @@ tools only geocode by name when nothing else has coordinates.
   map, so having them already is never a reason to skip this call. Call
   it exactly once you know the final stop(s); don't call it speculatively
   for candidates you might drop.
+- Set `round_trip=true` on `tool_build_trip_map` whenever the plan returns
+  to the origin the same day -- which is the normal case for a day trip or
+  weekend trip out of Tehran (leave in the morning, come back that
+  evening/the last day). Only use `round_trip=false` when the user is
+  clearly not returning to the origin the same trip (staying overnight at
+  the destination with no stated return, an open-ended multi-city trip, or
+  an explicitly one-way request). Getting this flag right matters: it's
+  what makes `total_duration_hours` include the drive back, not just the
+  drive out.
+- **Distance and duration numbers you state in the reply -- one-way,
+  per-leg, or total -- must come from what `tool_build_trip_map` (or
+  `tool_check_reachable_within_time`'s `approx_distance_km`) actually
+  returned for *this* plan, never a rounder figure recalled from your own
+  general knowledge of the route.** This is a correctness requirement, not
+  a style preference: the whole point of these tools is that the plan's
+  stated time/distance and its feasibility for the trip's duration must
+  agree. Convert the raw numbers into natural phrasing -- `2.41` hours
+  becomes "حدود ۲ ساعت و ۲۵ دقیقه", `101.8` km becomes "حدود ۱۰۲ کیلومتر"
+  -- but never substitute a different value. When `round_trip=true`, the
+  tool's `return_leg`/`total_duration_hours` already include the trip back;
+  reflect that in "مسیر و دسترسی" (e.g. state the one-way time and mention
+  the return) rather than only describing the outbound leg.
 - For a multi-stop plan, use the order and per-leg distance/duration
   `tool_build_trip_map` returns to structure "مسیر و دسترسی" and to
   sanity-check that the whole combination fits the trip's duration: most
   of a short trip should be spent *at* destinations, not driving between
-  them, so if `total_duration_hours` eats an unreasonable share of the
-  available days, cut a stop or say so rather than presenting an
-  overloaded plan as-is.
-- Never expose tool names, coordinates as raw numbers, "isochrone",
-  "geocoding", or any API/internal detail to the user -- fold the result
-  into the same warm, natural plan you'd otherwise write; distances/times
-  should read as your own knowledge of the route, not a tool dump.
+  them, so if `total_duration_hours` (which already accounts for a return
+  leg when relevant) eats an unreasonable share of the available days, cut
+  a stop or say so rather than presenting an overloaded plan as-is.
+- Never expose tool names, raw coordinate pairs, "isochrone", "geocoding",
+  or any other API/internal detail to the user -- fold the result into the
+  same warm, natural plan you'd otherwise write, as if you simply know the
+  route. This is about hiding *plumbing* (tool names, lat/lon pairs,
+  internal field names), not about softening or replacing the actual
+  distance/duration values, which must stay accurate per the rule above.
+- Once you've settled on the destination(s), call `tool_find_nearby_amenities`
+  at least once per finalized stop with a layer suited to what would
+  genuinely enrich that plan -- not just `restaurant`/`hotel`/`parking`, but
+  also things like `natural_feature`, `historical`, `mosque`, `garden`,
+  `interests`, `park`, or `water_park` when relevant to the destination's
+  character (nature spot, historic site, pilgrimage trip, etc.). Weave a
+  couple of the genuinely useful results into the plan naturally (e.g. a
+  notable nearby landmark, a place to eat, where to stay) rather than
+  listing every raw result -- this is meant to add real, concrete color to
+  the plan, not pad it.
 - If a map tool comes back empty, partial, or with unresolved coordinates,
   don't block or mention the gap to the user -- fall back to your own
   geographic knowledge of the region exactly as you already do for missing
@@ -522,10 +557,12 @@ def get_trip_planner_agent() -> Agent[AgentDeps, str]:
         tools already gave you; only geocodes by name as a last resort),
         computes the best visiting order for multi-stop trips, and returns
         real driving distance/duration between consecutive stops -- use the
-        returned `total_duration_hours` / per-leg values to judge whether the
-        plan actually fits the time the user has (e.g. don't spread stops
+        returned `total_duration_hours` / per-leg values, verbatim (converted
+        to natural phrasing, not re-estimated), to judge whether the plan
+        actually fits the time the user has (e.g. don't spread stops
         that need 8+ hours of driving across a 2-day trip that's mostly meant
-        for being *at* places, not driving between them).
+        for being *at* places, not driving between them) and to state
+        distance/time in the reply.
 
         Args:
             stops: one dict per destination, in any order, e.g.
@@ -537,8 +574,14 @@ def get_trip_planner_agent() -> Agent[AgentDeps, str]:
                 trip's starting point. Omit to default to central Tehran
                 (matches the "assume Tehran" rule), or pass the user's
                 stated origin/coordinates if different.
-            round_trip: true if the route should return to the origin
-                (relevant mainly for a single loop-day trip); usually false.
+            round_trip: true if the route returns to the origin the same
+                trip -- this is the common case for a day trip or weekend
+                trip out of Tehran, so default this to true unless the user
+                is clearly not coming back to the origin this trip (staying
+                over with no stated return, one-way, open-ended multi-city).
+                When true, the response includes a `return_leg` (last stop ->
+                origin) and `total_distance_km`/`total_duration_hours`
+                include it; when false, totals are one-way only.
         """
         result = await build_trip_map(ctx, stops, origin, round_trip)
         return json.dumps(result, default=str, ensure_ascii=False)
@@ -569,10 +612,16 @@ def get_trip_planner_agent() -> Agent[AgentDeps, str]:
     async def tool_find_nearby_amenities(
         ctx: RunContext[AgentDeps], latitude: float, longitude: float, layer: str, radius_m: int = 3000
     ) -> str:
-        """Find nearby amenities (restaurant, hotel, parking, hospital, cafe,
-        ...) around a destination's coordinates, to enrich a recommendation
-        with practical nearby options. `layer` is an English slug such as
-        "restaurant", "hotel", "parking", "cafe", "hospital", "bank"."""
+        """Find nearby points of interest around a destination's coordinates,
+        to enrich a recommendation -- both practical amenities (restaurant,
+        hotel, parking, cafe, hospital, bank) and things worth actually
+        visiting near the stop (natural_feature, historical, mosque, garden,
+        interests, park, water_park). Pick whichever layer(s) fit what would
+        genuinely help this plan -- e.g. `natural_feature`/`historical` near
+        a nature or heritage destination, `mosque` for a pilgrimage trip,
+        `restaurant`/`lodging` for practical trip logistics. `layer` is a
+        single English slug per call; call it more than once for more than
+        one kind of nearby point."""
         result = await find_nearby_amenities(ctx, latitude, longitude, layer, radius_m)
         return json.dumps(result, default=str, ensure_ascii=False)
 

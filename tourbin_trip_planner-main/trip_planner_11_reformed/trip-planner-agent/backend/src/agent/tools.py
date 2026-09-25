@@ -348,9 +348,41 @@ async def build_trip_map(
         )
         prev = stop
 
+    # --- Return leg back to origin, when this is a round trip ---
+    # NOTE: the Neshan TSP call above only *orders* the stops (optionally
+    # accounting for a return to origin when computing that order); it never
+    # returns geometry/distance for a "last stop -> origin" leg. Without this
+    # block, `total_duration_hours` was silently one-way even when
+    # `round_trip=True`, which meant a same-day out-and-back trip (the
+    # overwhelmingly common case for a Tehran day trip) had its total drive
+    # time understated by roughly half -- exactly the number
+    # `tool_check_reachable_within_time` / the "does this fit the available
+    # days" feasibility check in the system prompt relies on.
+    return_leg = None
+    if round_trip and ordered_stops:
+        last_stop = ordered_stops[-1]
+        leg = None
+        if ctx.deps.maps is not None and ctx.deps.maps.enabled:
+            leg = await ctx.deps.maps.route(
+                (last_stop["latitude"], last_stop["longitude"]),
+                (origin_coords["latitude"], origin_coords["longitude"]),
+            )
+        if leg is None:
+            dist = haversine_km(
+                last_stop["latitude"], last_stop["longitude"], origin_coords["latitude"], origin_coords["longitude"]
+            )
+            leg = {"distance_km": round(dist, 1), "duration_hours": round(estimate_duration_hours(dist), 2)}
+        return_leg = {
+            "leg_distance_km_from_previous": leg["distance_km"],
+            "leg_duration_hours_from_previous": leg["duration_hours"],
+        }
+        total_distance_km += leg["distance_km"]
+        total_duration_hours += leg["duration_hours"]
+
     result = {
         "origin": origin_coords | {"name": origin.get("name", "مبدا")},
         "stops": ordered_stops,
+        "return_leg": return_leg,
         "total_distance_km": round(total_distance_km, 1),
         "total_duration_hours": round(total_duration_hours, 2),
         "round_trip": round_trip,
@@ -445,10 +477,12 @@ async def find_nearby_amenities(
     layer: str,
     radius_m: int = 3000,
 ) -> list[dict[str, Any]] | dict[str, str]:
-    """Look up nearby amenities (restaurant, hotel, parking, hospital, ...)
-    around a point to enrich a destination's description. `layer` must be
-    one of Neshan's nearby-search layer slugs (e.g. "restaurant", "hotel",
-    "parking", "cafe", "hospital")."""
+    """Look up nearby points of interest around a point to enrich a
+    destination's description -- practical amenities (restaurant, hotel,
+    parking, hospital, cafe, bank) as well as things worth visiting nearby
+    (natural_feature, historical, mosque, garden, interests, park,
+    water_park). `layer` must be one of Neshan's nearby-search layer
+    slugs; see the full list in `NeshanClient.nearby`'s caller docs."""
     if ctx.deps.maps is None or not ctx.deps.maps.enabled:
         return {"status": "skipped", "reason": "maps API not configured"}
     return await ctx.deps.maps.nearby(latitude, longitude, layer, radius_m)

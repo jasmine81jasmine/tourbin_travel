@@ -145,6 +145,37 @@ async def test_build_trip_map_uses_tsp_order_and_real_routing():
     # TSP said visit index 2 (Firoozkooh, resolved[1]) before index 1 (Damavand, resolved[0])
     assert [s["name"] for s in result["stops"]] == ["فیروزکوه", "دماوند"]
     assert result["total_distance_km"] == pytest.approx(222.2)
+    # round_trip defaults to False here -- no return leg, totals stay one-way
+    assert result["return_leg"] is None
+
+
+@pytest.mark.asyncio
+async def test_build_trip_map_round_trip_adds_return_leg_fallback():
+    """Regression test: round_trip=True must add a last-stop->origin leg to
+    both `return_leg` and the totals, not just influence TSP ordering."""
+    ctx = _Ctx(_Deps())  # maps disabled -> haversine fallback for the return leg too
+    one_way = await tools.build_trip_map(ctx, [_DAMAVAND], round_trip=False)
+    ctx2 = _Ctx(_Deps())
+    round_trip = await tools.build_trip_map(ctx2, [_DAMAVAND], round_trip=True)
+
+    assert round_trip["return_leg"] is not None
+    assert round_trip["return_leg"]["leg_distance_km_from_previous"] > 0
+    # Out-and-back distance/time must exceed the one-way figures.
+    assert round_trip["total_distance_km"] > one_way["total_distance_km"]
+    assert round_trip["total_duration_hours"] > one_way["total_duration_hours"]
+    # For a single stop, out-and-back is (approximately) double the one-way trip.
+    assert round_trip["total_distance_km"] == pytest.approx(2 * one_way["total_distance_km"], rel=0.05)
+
+
+@pytest.mark.asyncio
+async def test_build_trip_map_round_trip_uses_real_routing_for_return_leg():
+    ctx = _Ctx(_Deps(maps=_FakeMapsTSP()))  # _FakeMapsTSP.route() always returns a fixed leg
+    result = await tools.build_trip_map(ctx, [_DAMAVAND, _FIROOZKOOH], round_trip=True)
+
+    assert result["return_leg"] == {"leg_distance_km_from_previous": 111.1, "leg_duration_hours_from_previous": 2.22}
+    # two outbound legs (origin->stop1->stop2) + one return leg, all from the fake route()
+    assert result["total_distance_km"] == pytest.approx(333.3)
+    assert result["total_duration_hours"] == pytest.approx(6.66)
 
 
 # ---------------------------------------------------------------------
