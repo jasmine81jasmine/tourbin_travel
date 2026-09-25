@@ -18,6 +18,23 @@ def _details(name="دریاچه سقالکسار"):
     )])]
 
 
+@pytest.mark.asyncio
+async def test_full_graph_description_is_retained_without_character_limit():
+    description = "این مقصد طبیعت زیبایی دارد. " + "این جمله طولانی هم باید کامل بماند " * 20
+    messages = [ModelRequest(parts=[ToolReturnPart(
+        tool_name="tool_get_destination_details",
+        content=json.dumps({"name": "دیزین", "latitude": 36.05, "longitude": 51.42, "description": description}),
+        tool_call_id="t",
+    )])]
+
+    class FastMaps(_Maps):
+        async def route(self, origin, destination):
+            return {"distance_km": 76.3, "duration_hours": 1.58}
+
+    reply, _ = await screen_short_trip(TravelGoal(duration="یک روز"), FastMaps(), messages, "دیزین")
+    assert description.strip() in reply
+
+
 class _Maps:
     enabled = True
 

@@ -288,7 +288,7 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
         # search is only used for driving feasibility and nearby POIs.
         description = row.get("description")
         if isinstance(description, str) and description.strip():
-            lines.append(f"  {description.strip()[:240]}")
+            lines.append(f"  {description.strip()}")
     lines.append("این زمان‌ها شامل بازدید، استراحت و ترافیک زنده نیستند؛ پیش از حرکت شرایط مسیر را بررسی کنید.")
     if discovered:
         lines.append("دربارهٔ امکانات و آسان‌بودن مسیر پیاده‌روی این مکان‌ها اطلاعات تأییدشده ندارم؛ اگر همراه کودک یا سالمند هستید، پیش از انتخاب بررسی کنید.")
