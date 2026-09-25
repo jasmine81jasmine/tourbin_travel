@@ -33,6 +33,8 @@ async def test_full_graph_description_is_retained_without_character_limit():
 
     reply, _ = await screen_short_trip(TravelGoal(duration="یک روز"), FastMaps(), messages, "دیزین")
     assert description.strip() in reply
+    assert "### 🌿" in reply and "#### دیزین" in reply
+    assert "### 🚗" in reply and "**مجموع رانندگی:**" in reply
 
 
 class _Maps:

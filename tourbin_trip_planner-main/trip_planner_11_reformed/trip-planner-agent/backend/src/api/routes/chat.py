@@ -325,7 +325,7 @@ async def chat(
             # Alternatives aren't a single combined route. Retain map data
             # only when exactly the verified stop(s) were finalized.
             if (itinerary is None or any(s.name not in reply_text for s in itinerary.stops)
-                    or reply_text.count("\n- ") > 1):
+                    or reply_text.count("\n#### ") > 1):
                 itinerary = None
             elif itinerary and verified_route is None:
                 try:

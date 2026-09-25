@@ -89,7 +89,7 @@ def ground_route_text(reply: str, itinerary: Any) -> str:
     # entire paragraph would also discard useful graph-based place details.
     fragments = re.split(r"(?<=[.؟!\n])", reply)
     clean = "".join(fragment for fragment in fragments if not numeric_route.search(fragment)).strip()
-    lines = ["### مسیر و زمان رانندگی (بدون ترافیک)"]
+    lines = ["### 🚗 مسیر و زمان رانندگی (بدون ترافیک)"]
     for stop in itinerary.stops:
         lines.append(f"- تا {stop.name}: {stop.leg_distance_km_from_previous} کیلومتر، {stop.leg_duration_hours_from_previous} ساعت رانندگی از توقف قبلی.")
     if itinerary.return_leg:
@@ -231,7 +231,9 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
                     total = sum(leg["duration_hours"] for leg in legs) + back["duration_hours"]
                     if total <= budget:
                         route = " ← ".join([origin_name] + [stop.name for stop in itinerary.stops] + [origin_name])
-                        return (f"مسیر پیشنهادی: {route}. زمان رانندگی رفت‌وبرگشت بدون ترافیک {total:.2f} ساعت است؛ زمان بازدید و استراحت جداست.", None)
+                        return (f"### 🌿 برنامهٔ پیشنهادی\n{route}\n\n"
+                                f"### 🚗 زمان مسیر\nرانندگی رفت‌وبرگشت بدون ترافیک: {total:.2f} ساعت. "
+                                "زمان بازدید و استراحت جداست.", None)
         return ("مسیر ترکیبی این مقصدها با زمان سفر شما تأیید نشد. بهتر است تعداد توقف‌ها را کمتر کنیم یا مقصدهای نزدیک‌تری انتخاب کنیم.", None)
 
     feasible = []
@@ -277,19 +279,21 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
         return ("برای این سفر کوتاه فعلاً زمان مسیر رفت‌وبرگشت را نمی‌توانم با دادهٔ مسیریابی تأیید کنم؛ نمی‌خواهم مسیر دور را یک‌روزه پیشنهاد کنم. مبدأ و مقصد دقیق را بگویید یا کمی بعد دوباره امتحان کنیم.", None)
 
     # List alternatives independently: never fabricate a combined itinerary.
-    lines = [f"برای سفر {goal.duration} از {origin_name}، این گزینه‌ها با زمان رانندگی رفت‌وبرگشت بررسی شدند (بدون ترافیک):"]
+    lines = [f"### 🌿 گزینه‌های سفر {goal.duration}",
+             f"از {origin_name}، این مقصدها از نظر زمان رانندگی رفت‌وبرگشت بررسی شدند:"]
     for row, outbound, inbound, drive in feasible[:4]:
-        lines.append(
-            f"- {row['name']}: رفت {outbound['distance_km']} کیلومتر و {outbound['duration_hours']} ساعت؛ "
-            f"برگشت {inbound['distance_km']} کیلومتر و {inbound['duration_hours']} ساعت؛ "
-            f"مجموع رانندگی {drive:.2f} ساعت."
-        )
+        lines.append(f"#### {row['name']}")
         # The graph remains the source for destination characteristics; map
         # search is only used for driving feasibility and nearby POIs.
         description = row.get("description")
         if isinstance(description, str) and description.strip():
-            lines.append(f"  {description.strip()}")
-    lines.append("این زمان‌ها شامل بازدید، استراحت و ترافیک زنده نیستند؛ پیش از حرکت شرایط مسیر را بررسی کنید.")
+            lines.append(description.strip())
+        lines.append(
+            f"- **رفت:** {outbound['distance_km']} کیلومتر، {outbound['duration_hours']} ساعت\n"
+            f"- **برگشت:** {inbound['distance_km']} کیلومتر، {inbound['duration_hours']} ساعت\n"
+            f"- **مجموع رانندگی:** {drive:.2f} ساعت"
+        )
+    lines.append("### 🚗 نکات مسیر\nاین زمان‌ها شامل بازدید، استراحت و ترافیک زنده نیستند؛ پیش از حرکت شرایط مسیر را بررسی کنید.")
     if discovered:
         lines.append("دربارهٔ امکانات و آسان‌بودن مسیر پیاده‌روی این مکان‌ها اطلاعات تأییدشده ندارم؛ اگر همراه کودک یا سالمند هستید، پیش از انتخاب بررسی کنید.")
     # A single verified option is a usable map itinerary. Several independent
@@ -307,4 +311,4 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
             "total_distance_km": round(outbound["distance_km"] + inbound["distance_km"], 1),
             "total_duration_hours": round(duration, 2), "round_trip": True,
         }
-    return "\n".join(lines), route
+    return "\n\n".join(lines), route
