@@ -188,9 +188,42 @@ async def _discover_nearby(goal: TravelGoal, maps: Any, origin: tuple[float, flo
         return []
 
 
+def _wants_one_place(goal: TravelGoal) -> bool:
+    """Do not turn 'یه جای نزدیک' into a multi-stop driving itinerary."""
+    text = goal.objective.replace("‌", " ")
+    return bool(re.search(r"(?:یه|یک)\s+(?:جا(?:یی|ی)?|مقصد)|(?:فقط|تنها)\s+(?:یه|یک)", text))
+
+
+async def _destination_descriptions(
+    rows: list[dict], graph: Any,
+    formatter: Callable[[dict[str, str]], Awaitable[dict[str, str]]] | None,
+) -> dict[str, str]:
+    """Prefer graph details; let the LLM lay them out without changing facts."""
+    descriptions = {}
+    for row in rows:
+        name = row["name"]
+        description = row.get("description")
+        if (not isinstance(description, str) or not description.strip()) and graph is not None:
+            try:
+                details = await graph.get_destination_details(row.get("id") or name)
+                if details and details.get("name") == name:
+                    description = details.get("description")
+            except Exception:
+                pass  # Missing optional details must not discard a verified route.
+        if isinstance(description, str) and description.strip():
+            descriptions[name] = description.strip()
+    if descriptions and formatter is not None:
+        try:
+            return {**descriptions, **(await formatter(descriptions))}
+        except Exception:
+            pass
+    return descriptions
+
+
 async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[Any], reply: str,
                             itinerary: Any = None,
-                            description_formatter: Callable[[dict[str, str]], Awaitable[dict[str, str]]] | None = None
+                            description_formatter: Callable[[dict[str, str]], Awaitable[dict[str, str]]] | None = None,
+                            graph: Any = None,
                             ) -> tuple[str, dict | None] | None:
     """Return a grounded replacement when the model proposes a short trip.
 
@@ -216,7 +249,7 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
     else:
         origin = None
 
-    if itinerary is not None and len(itinerary.stops) > 1:
+    if itinerary is not None and len(itinerary.stops) > 1 and not _wants_one_place(goal):
         legs = []
         previous = origin
         if maps is not None and maps.enabled and previous is not None:
@@ -233,9 +266,35 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
                     total = sum(leg["duration_hours"] for leg in legs) + back["duration_hours"]
                     if total <= budget:
                         route = " ← ".join([origin_name] + [stop.name for stop in itinerary.stops] + [origin_name])
-                        return (f"### 🌿 برنامهٔ پیشنهادی\n{route}\n\n"
-                                f"### 🚗 زمان مسیر\nرانندگی رفت‌وبرگشت بدون ترافیک: {total:.2f} ساعت. "
-                                "زمان بازدید و استراحت جداست.", None)
+                        rows = [next((row for row in candidates if row.get("name") == stop.name),
+                                     {"name": stop.name}) for stop in itinerary.stops]
+                        descriptions = await _destination_descriptions(rows, graph, description_formatter)
+                        lines = ["### 🌿 برنامهٔ سفر", route]
+                        stops = []
+                        for stop, leg in zip(itinerary.stops, legs):
+                            lines.append(f"#### {stop.name}")
+                            if descriptions.get(stop.name):
+                                lines.append(descriptions[stop.name])
+                            lines.append(f"- **مسیر از توقف قبلی:** {leg['distance_km']} کیلومتر، "
+                                         f"{leg['duration_hours']} ساعت رانندگی")
+                            stops.append({"order": stop.order, "name": stop.name,
+                                          "latitude": stop.latitude, "longitude": stop.longitude,
+                                          "leg_distance_km_from_previous": leg["distance_km"],
+                                          "leg_duration_hours_from_previous": leg["duration_hours"]})
+                        lines.append(f"### 🚗 جمع‌بندی مسیر\n- **بازگشت به {origin_name}:** "
+                                     f"{back['distance_km']} کیلومتر، {back['duration_hours']} ساعت\n"
+                                     f"- **مجموع رانندگی رفت‌وبرگشت:** "
+                                     f"{round(sum(leg['distance_km'] for leg in legs) + back['distance_km'], 1)} "
+                                     f"کیلومتر، {total:.2f} ساعت\nزمان بازدید، استراحت و ترافیک زنده جداست.")
+                        verified_route = {
+                            "origin": {"name": origin_name, "latitude": origin[0], "longitude": origin[1]},
+                            "stops": stops,
+                            "return_leg": {"leg_distance_km_from_previous": back["distance_km"],
+                                           "leg_duration_hours_from_previous": back["duration_hours"]},
+                            "total_distance_km": round(sum(leg["distance_km"] for leg in legs) + back["distance_km"], 1),
+                            "total_duration_hours": round(total, 2), "round_trip": True,
+                        }
+                        return "\n\n".join(lines), verified_route
         return ("مسیر ترکیبی این مقصدها با زمان سفر شما تأیید نشد. بهتر است تعداد توقف‌ها را کمتر کنیم یا مقصدهای نزدیک‌تری انتخاب کنیم.", None)
 
     feasible = []
@@ -282,14 +341,9 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
 
     # The model chooses headings for graph descriptions; road figures and
     # destination selection stay deterministic and cannot be re-invented.
-    descriptions = {row["name"]: row["description"] for row, _, _, _ in feasible[:4]
-                    if isinstance(row.get("description"), str) and row["description"].strip()}
-    formatted = descriptions
-    if descriptions and description_formatter is not None:
-        try:
-            formatted = await description_formatter(descriptions)
-        except Exception:
-            formatted = descriptions
+    formatted = await _destination_descriptions(
+        [row for row, _, _, _ in feasible[:4]], graph, description_formatter,
+    )
 
     # List alternatives independently: never fabricate a combined itinerary.
     lines = [f"### 🌿 گزینه‌های سفر {goal.duration}",

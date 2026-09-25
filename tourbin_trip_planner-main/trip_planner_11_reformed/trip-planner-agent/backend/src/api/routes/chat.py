@@ -319,6 +319,7 @@ async def chat(
         checked = None if _is_only_greeting(request.message) else await screen_short_trip(
             travel_goal, deps.maps, result.new_messages(), reply_text, itinerary,
             description_formatter=format_descriptions,
+            graph=graph_repo,
         )
         if checked is not None:
             reply_text, verified_route = checked
@@ -327,7 +328,7 @@ async def chat(
             # Alternatives aren't a single combined route. Retain map data
             # only when exactly the verified stop(s) were finalized.
             if (itinerary is None or any(s.name not in reply_text for s in itinerary.stops)
-                    or reply_text.count("\n#### ") > 1):
+                    or (verified_route is None and reply_text.count("\n#### ") > 1)):
                 itinerary = None
             elif itinerary and verified_route is None:
                 try:

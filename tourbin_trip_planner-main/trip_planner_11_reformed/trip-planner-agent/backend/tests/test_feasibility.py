@@ -109,6 +109,73 @@ async def test_two_individually_near_stops_can_still_exceed_combined_budget():
 
 
 @pytest.mark.asyncio
+async def test_one_nearby_place_request_does_not_collapse_four_options_to_route_only():
+    names = ["رودخانه ولنجک", "رودخانه گلابدره", "رودخانه دربند", "درکه"]
+    itinerary = Itinerary.model_validate({
+        "origin": {"name": "تهران", "latitude": 35.6892, "longitude": 51.389},
+        "stops": [{"order": i, "name": name, "latitude": 35.8 + i * .01, "longitude": 51.4}
+                  for i, name in enumerate(names, 1)],
+    })
+
+    class FastMaps(_Maps):
+        async def route(self, origin, destination):
+            return {"distance_km": 16.1, "duration_hours": .33}
+
+    class Graph:
+        async def get_destination_details(self, name):
+            return {"name": name, "description": f"شرح کامل و خواندنی {name}. نکات بازدید {name}."}
+
+    async def formatter(descriptions):
+        assert set(descriptions) == set(names)
+        return {name: f"##### 🌿 دربارهٔ {name}\n\n{description}"
+                for name, description in descriptions.items()}
+
+    reply, route = await screen_short_trip(
+        TravelGoal(duration="یک روز", objective="یه جای نزدیک با طبیعت خوب پیشنهاد بده"),
+        FastMaps(), [], "پیشنهاد: " + "، ".join(names), itinerary,
+        description_formatter=formatter, graph=Graph(),
+    )
+    assert route is None  # four independent alternatives, not one journey
+    for name in names:
+        assert f"#### {name}" in reply
+        assert f"شرح کامل و خواندنی {name}. نکات بازدید {name}." in reply
+        assert f"##### 🌿 دربارهٔ {name}" in reply
+    assert "تهران ←" not in reply
+
+
+@pytest.mark.asyncio
+async def test_real_multistop_trip_keeps_descriptions_and_verified_itinerary():
+    itinerary = Itinerary.model_validate({
+        "origin": {"name": "تهران", "latitude": 35.6892, "longitude": 51.389},
+        "stops": [
+            {"order": 1, "name": "درکه", "latitude": 35.8, "longitude": 51.4},
+            {"order": 2, "name": "دربند", "latitude": 35.81, "longitude": 51.41},
+        ],
+    })
+
+    class FastMaps(_Maps):
+        async def route(self, origin, destination):
+            return {"distance_km": 10.0, "duration_hours": .3}
+
+    class Graph:
+        async def get_destination_details(self, name):
+            return {"name": name, "description": f"متن کامل {name}."}
+
+    async def formatter(descriptions):
+        return {name: f"##### 🌿 ویژگی‌ها\n\n{text}" for name, text in descriptions.items()}
+
+    reply, route = await screen_short_trip(
+        TravelGoal(duration="یک روز", objective="چند توقف نزدیک تهران برای گردش می‌خواهم"),
+        FastMaps(), [], "از درکه و دربند دیدن می‌کنیم", itinerary,
+        description_formatter=formatter, graph=Graph(),
+    )
+    assert "متن کامل درکه." in reply and "متن کامل دربند." in reply
+    assert "##### 🌿 ویژگی‌ها" in reply and "0.90 ساعت" in reply
+    assert [s["name"] for s in route["stops"]] == ["درکه", "دربند"]
+    assert route["total_duration_hours"] == .9 and route["round_trip"] is True
+
+
+@pytest.mark.asyncio
 async def test_discovers_nearby_nature_when_graph_candidate_too_far():
     class NearbyMaps(_Maps):
         async def isochrone(self, lat, lon, minutes=None):
