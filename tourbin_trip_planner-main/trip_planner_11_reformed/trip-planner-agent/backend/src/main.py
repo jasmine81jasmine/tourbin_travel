@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.adapters import university_proxy
-from src.api.routes import chat
+from src.api.routes import chat, map as trip_map
 from src.config import get_settings
 from src.memory.client import close_memory_client, init_memory_client, is_memory_connected
 
@@ -50,6 +50,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(chat.router, prefix="/api", tags=["chat"])
+    app.include_router(trip_map.router, prefix="/api", tags=["map"])
     # OpenAI-wire-format shim in front of the university LLM/embedding
     # gateway -- only hit when LLM_BASE_URL / EMBEDDING_BASE_URL in .env
     # point here (see .env.example "Option B"). See adapters/university_proxy.py.

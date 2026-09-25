@@ -7,6 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -118,6 +120,59 @@
       background: rgba(255, 255, 255, 0.16);
       border-color: var(--mist);
     }
+    .new-chat-btn[hidden] { display: none; }
+    .map-back-btn[hidden] { display: none; }
+    .view-map-btn {
+      display: inline-flex;
+      margin-top: 12px;
+      padding: 8px 15px;
+      border: 1px solid var(--moss);
+      border-radius: 999px;
+      background: var(--ghost);
+      color: var(--forest);
+      font: 600 0.82rem 'Vazirmatn', sans-serif;
+      cursor: pointer;
+    }
+    .view-map-btn:hover { background: var(--mist); }
+    .map-view {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 18px 20px 28px;
+    }
+    .map-view[hidden] { display: none; }
+    .map-view h2 { color: var(--forest); font-size: 1.13rem; margin-bottom: 8px; }
+    .map-view p { font-size: 0.83rem; line-height: 1.7; color: var(--bark); margin-bottom: 12px; }
+    .trip-map {
+      direction: ltr;
+      height: min(60vh, 560px);
+      min-height: 320px;
+      border: 1px solid var(--sand);
+      border-radius: var(--radius);
+      z-index: 0;
+    }
+    .map-summary {
+      background: white;
+      border: 1px solid var(--sand);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      margin-top: 12px;
+      font-size: 0.83rem;
+    }
+    .map-summary h3 { font-size: 0.9rem; color: var(--forest); margin: 7px 0; }
+    .map-summary ol, .map-summary ul { padding-right: 22px; line-height: 1.9; }
+    .map-summary li::marker { color: var(--moss); font-weight: 700; }
+    .trip-stop-icon {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      border: 2px solid white;
+      background: var(--moss);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      color: white;
+      font: 700 0.78rem 'Vazirmatn', sans-serif;
+      display: grid; place-items: center;
+    }
+    .trip-origin-icon { background: var(--forest); }
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50%       { opacity: 0.3; }
@@ -133,6 +188,7 @@
       gap: 16px;
       scroll-behavior: smooth;
     }
+    .chat-area[hidden], .input-bar[hidden] { display: none; }
 
     /* ── Welcome card ───────────────────────── */
     .welcome-card {
@@ -411,6 +467,8 @@
       .bubble { padding: 10px 13px; font-size: 0.85rem; }
       .input-bar { padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); }
       .input-footer { display: none; }
+      .map-view { padding: 14px 12px 24px; }
+      .trip-map { min-height: 290px; height: 52vh; }
     }
 
     @media (max-width: 380px) {
@@ -437,6 +495,7 @@
     </div>
 
     <div class="header-actions">
+      <button class="new-chat-btn map-back-btn" id="mapBackBtn" hidden type="button" onclick="closeTripMap()">→ بازگشت</button>
       <button class="new-chat-btn" id="newChatBtn" onclick="startNewChat()">＋ چت جدید</button>
       <div class="status-dot" id="connectionStatus">
         <span></span>
@@ -475,8 +534,22 @@
 
   </div>
 
+  <!-- Map view for one finalized itinerary. Uses the same Tourbin header. -->
+  <section class="map-view" id="mapView" hidden aria-label="برنامه سفر روی نقشه">
+    <h2>🗺️ برنامهٔ سفر روی نقشه</h2>
+    <p id="mapStatus" role="status" aria-live="polite">مسیر سفر در حال آماده‌سازی است…</p>
+    <div class="trip-map" id="tripMap" aria-label="نقشهٔ مقصدها و مسیر سفر"></div>
+    <div class="map-summary">
+      <h3>📍 ترتیب بازدید</h3>
+      <ol id="mapStops"></ol>
+      <h3>🚗 مسیر جاده‌ای</h3>
+      <ul id="mapLegs"></ul>
+      <p id="mapTotal"></p>
+    </div>
+  </section>
+
   <!-- Input -->
-  <div class="input-bar">
+  <div class="input-bar" id="inputBar">
     <div class="input-row">
       <textarea
         id="userInput"
@@ -505,6 +578,12 @@
   let isLoading = false;
   let sessionId = null;
   let userId = null;
+  let tripMap = null;
+  let tripRouteLayer = null;
+  let mapAbort = null;
+  let mapGeneration = 0;
+  let activeMapButton = null;
+  const mapRouteCache = new Map();
 
   // ── DOM refs ──────────────────────────────────────────────────────
   const chatArea  = document.getElementById('chatArea');
@@ -513,6 +592,158 @@
   const newChatBtn = document.getElementById('newChatBtn');
   const connectionStatus = document.getElementById('connectionStatus');
   const statusText = document.getElementById('statusText');
+  const mapView = document.getElementById('mapView');
+  const mapStatus = document.getElementById('mapStatus');
+  const mapStops = document.getElementById('mapStops');
+  const mapLegs = document.getElementById('mapLegs');
+  const mapTotal = document.getElementById('mapTotal');
+  const mapBackBtn = document.getElementById('mapBackBtn');
+
+  function validPoint(point) {
+    return point && typeof point.name === 'string' && point.name.trim() &&
+      Number.isFinite(point.latitude) && Number.isFinite(point.longitude) &&
+      Math.abs(point.latitude) <= 90 && Math.abs(point.longitude) <= 180;
+  }
+
+  function hasMapItinerary(itinerary) {
+    return itinerary && validPoint(itinerary.origin) &&
+      Array.isArray(itinerary.stops) && itinerary.stops.length > 0 && itinerary.stops.length <= 10 &&
+      itinerary.stops.every((stop, index) => validPoint(stop) && stop.order === index + 1);
+  }
+
+  function tripMarkerIcon(label, origin = false) {
+    return L.divIcon({
+      className: '',
+      html: `<span class="trip-stop-icon${origin ? ' trip-origin-icon' : ''}">${label}</span>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+    });
+  }
+
+  function closeTripMap() {
+    mapGeneration++;
+    if (mapAbort) mapAbort.abort();
+    mapAbort = null;
+    mapView.hidden = true;
+    chatArea.hidden = false;
+    document.getElementById('inputBar').hidden = false;
+    mapBackBtn.hidden = true;
+    newChatBtn.hidden = false;
+    if (activeMapButton && activeMapButton.isConnected) activeMapButton.focus();
+    activeMapButton = null;
+  }
+
+  async function openTripMap(itinerary, button) {
+    if (!hasMapItinerary(itinerary)) return;
+    mapGeneration++;
+    const requestId = mapGeneration;
+    if (mapAbort) mapAbort.abort();
+    activeMapButton = button;
+    chatArea.hidden = true;
+    document.getElementById('inputBar').hidden = true;
+    mapView.hidden = false;
+    mapBackBtn.hidden = false;
+    newChatBtn.hidden = true;
+    mapBackBtn.focus();
+    mapStatus.textContent = 'در حال دریافت مسیر جاده‌ای از نشان…';
+    mapStops.replaceChildren();
+    mapLegs.replaceChildren();
+    mapTotal.textContent = '';
+
+    if (typeof L === 'undefined') {
+      mapStatus.textContent = 'کتابخانهٔ نقشه بارگذاری نشد. اتصال اینترنت را بررسی کنید.';
+      return;
+    }
+    if (!tripMap) {
+      tripMap = L.map('tripMap', { zoomControl: false }).setView(
+        [itinerary.origin.latitude, itinerary.origin.longitude], 10
+      );
+      L.control.zoom({ position: 'topright' }).addTo(tripMap);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19,
+      }).addTo(tripMap);
+      tripRouteLayer = L.layerGroup().addTo(tripMap);
+    }
+    tripRouteLayer.clearLayers();
+    const points = [itinerary.origin, ...itinerary.stops];
+    const bounds = [];
+    points.forEach((point, index) => {
+      const position = [point.latitude, point.longitude];
+      bounds.push(position);
+      const popup = document.createElement('span');
+      popup.textContent = index ? `توقف ${index}: ${point.name}` : `مبدأ: ${point.name}`;
+      L.marker(position, { icon: tripMarkerIcon(index || 'م', index === 0) })
+        .addTo(tripRouteLayer).bindPopup(popup);
+      const item = document.createElement('li');
+      item.textContent = index ? `${point.name} (توقف ${index})` : `${point.name} (مبدأ)`;
+      mapStops.appendChild(item);
+    });
+    if (itinerary.round_trip) {
+      const item = document.createElement('li');
+      item.textContent = `${itinerary.origin.name} (بازگشت)`;
+      mapStops.appendChild(item);
+    }
+    // Leaflet must measure the map after its previously hidden view is visible.
+    requestAnimationFrame(() => {
+      if (requestId !== mapGeneration) return;
+      tripMap.invalidateSize();
+      tripMap.fitBounds(bounds, { padding: [45, 45], maxZoom: 13 });
+    });
+
+    const payload = { origin: itinerary.origin, stops: itinerary.stops, round_trip: !!itinerary.round_trip };
+    const cacheKey = JSON.stringify(payload);
+    mapAbort = new AbortController();
+    try {
+      let route = mapRouteCache.get(cacheKey);
+      if (!route) {
+        const response = await fetch(`${API_BASE}/api/map/route`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: cacheKey,
+          signal: mapAbort.signal,
+        });
+        if (!response.ok) {
+          const problem = await response.json().catch(() => ({}));
+          throw new Error(typeof problem.detail === 'string' ? problem.detail : 'دریافت مسیر جاده‌ای ممکن نشد.');
+        }
+        route = await response.json();
+        mapRouteCache.set(cacheKey, route);
+      }
+      if (requestId !== mapGeneration) return;
+      const colors = ['#2d6a4f', '#40916c', '#1b4332', '#74c69d'];
+      for (const [index, leg] of route.legs.entries()) {
+        if (!Array.isArray(leg.coordinates) || leg.coordinates.length < 2 ||
+            !leg.coordinates.every(coord => Array.isArray(coord) && coord.length === 2 &&
+              Number.isFinite(coord[0]) && Number.isFinite(coord[1]))) {
+          throw new Error('مختصات مسیر دریافتی معتبر نیست.');
+        }
+        const isReturn = !!itinerary.round_trip && index === route.legs.length - 1;
+        const segment = L.polyline(leg.coordinates, {
+          color: isReturn ? '#6b4f3a' : colors[index % colors.length],
+          weight: 5,
+          opacity: 0.88,
+          dashArray: isReturn ? '9 7' : null,
+        }).addTo(tripRouteLayer);
+        const label = document.createElement('span');
+        label.textContent = `${leg.from_name} ← ${leg.to_name}: ${leg.distance_km} کیلومتر`;
+        segment.bindTooltip(label, { sticky: true });
+        bounds.push(...leg.coordinates);
+        const item = document.createElement('li');
+        item.textContent = `${leg.from_name} ← ${leg.to_name}: ${leg.distance_km} کیلومتر، ${leg.duration_hours} ساعت`;
+        mapLegs.appendChild(item);
+      }
+      tripMap.fitBounds(bounds, { padding: [45, 45], maxZoom: 13 });
+      mapTotal.textContent = `مجموع رانندگی: ${route.total_distance_km} کیلومتر، ${route.total_duration_hours} ساعت (بدون ترافیک)`;
+      mapStatus.textContent = 'مسیر و ترتیب بازدید روی نقشه نمایش داده شد.';
+    } catch (error) {
+      if (requestId !== mapGeneration || error.name === 'AbortError') return;
+      mapStatus.textContent = `نقاط سفر نمایش داده شدند، اما مسیر جاده‌ای در دسترس نیست: ${error.message}`;
+    } finally {
+      if (requestId === mapGeneration) mapAbort = null;
+    }
+  }
 
   // ── Helpers ───────────────────────────────────────────────────────
   function autoResize(el) {
@@ -558,6 +789,7 @@
 
   async function startNewChat() {
     if (isLoading) return;
+    closeTripMap();
     newChatBtn.disabled = true;
     sessionId = null;
     userId = null;
@@ -653,7 +885,7 @@
   }
 
   // ── Append message bubble ─────────────────────────────────────────
-  function addMessage(role, content, isError = false) {
+  function addMessage(role, content, isError = false, itinerary = null) {
     const wrapper = document.createElement('div');
     wrapper.className = `message ${role}`;
 
@@ -666,6 +898,14 @@
 
     if (role === 'bot' && !isError) {
       bubble.innerHTML = parseMarkdown(content);
+      if (hasMapItinerary(itinerary)) {
+        const button = document.createElement('button');
+        button.className = 'view-map-btn';
+        button.type = 'button';
+        button.textContent = '🗺️ دیدن برنامه روی نقشه';
+        button.addEventListener('click', () => openTripMap(itinerary, button));
+        bubble.appendChild(button);
+      }
     } else {
       bubble.textContent = content;
     }
@@ -750,7 +990,7 @@
       sessionId = data.session_id;
       userId = data.user_id;
       setConnectionStatus(true);
-      addMessage('bot', data.reply || 'پاسخی دریافت نشد.');
+      addMessage('bot', data.reply || 'پاسخی دریافت نشد.', false, data.itinerary);
     } catch (err) {
       hideTyping();
       setConnectionStatus(false);

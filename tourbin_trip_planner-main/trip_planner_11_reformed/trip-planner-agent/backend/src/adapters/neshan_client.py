@@ -27,6 +27,35 @@ _BASE = "https://api.neshan.org"
 _TIMEOUT = httpx.Timeout(8.0, connect=4.0)
 
 
+def decode_polyline(encoded: str) -> list[list[float]]:
+    """Decode Google's polyline format into Leaflet [latitude, longitude] points."""
+    points: list[list[float]] = []
+    latitude = longitude = index = 0
+    while index < len(encoded) and len(points) < 20000:
+        changes = []
+        for _ in range(2):
+            value = shift = 0
+            while True:
+                if index >= len(encoded) or shift > 30:
+                    return []
+                digit = ord(encoded[index]) - 63
+                index += 1
+                if digit < 0 or digit > 63:
+                    return []
+                value |= (digit & 0x1F) << shift
+                shift += 5
+                if digit < 0x20:
+                    break
+            changes.append(~(value >> 1) if value & 1 else value >> 1)
+        latitude += changes[0]
+        longitude += changes[1]
+        lat, lon = latitude / 1e5, longitude / 1e5
+        if not -90 <= lat <= 90 or not -180 <= lon <= 180:
+            return []
+        points.append([lat, lon])
+    return points if index == len(encoded) else []
+
+
 class NeshanClient:
     def __init__(self, api_key: str, base_url: str = _BASE):
         self._api_key = api_key
@@ -105,6 +134,49 @@ class NeshanClient:
         distance_m = sum((leg.get("distance") or {}).get("value") or 0 for leg in legs)
         duration_s = sum((leg.get("duration") or {}).get("value") or 0 for leg in legs)
         return {"distance_km": round(distance_m / 1000.0, 1), "duration_hours": round(duration_s / 3600.0, 2)}
+
+    async def route_geometry(
+        self, origin: tuple[float, float], destination: tuple[float, float]
+    ) -> dict[str, Any] | None:
+        """Retrieve actual road geometry for the map; never expose API keys."""
+        data = await self._get("/v4/direction/no-traffic", {
+            "type": "car",
+            "origin": f"{origin[0]},{origin[1]}",
+            "destination": f"{destination[0]},{destination[1]}",
+        })
+        routes = (data or {}).get("routes") or []
+        if not routes or not isinstance(routes[0], dict):
+            return None
+        route = routes[0]
+        legs = route.get("legs") or []
+        if not legs or any((leg.get("distance") or {}).get("value") is None
+                           or (leg.get("duration") or {}).get("value") is None for leg in legs):
+            return None
+        geometry: list[list[float]] = []
+        incomplete_steps = False
+        for leg in legs:
+            for step in leg.get("steps") or []:
+                encoded = step.get("polyline") or ""
+                if not encoded:
+                    continue
+                chunk = decode_polyline(encoded)
+                if not chunk:
+                    incomplete_steps = True
+                    break
+                for point in chunk:
+                    if not geometry or point != geometry[-1]:
+                        geometry.append(point)
+            if incomplete_steps:
+                break
+        if incomplete_steps or len(geometry) < 2:
+            geometry = decode_polyline((route.get("overview_polyline") or {}).get("points") or "")
+        if len(geometry) < 2:
+            return None
+        distance_m = sum(leg["distance"]["value"] for leg in legs)
+        duration_s = sum(leg["duration"]["value"] for leg in legs)
+        return {"coordinates": geometry,
+                "distance_km": round(distance_m / 1000, 1),
+                "duration_hours": round(duration_s / 3600, 2)}
 
     # ------------------------------------------------------------------
     # TSP: given a set of stops, return the visiting order that minimizes
