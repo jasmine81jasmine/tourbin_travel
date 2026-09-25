@@ -64,6 +64,53 @@ async def test_two_individually_near_stops_can_still_exceed_combined_budget():
     assert "تأیید نشد" in reply  # three legs: 4.5h > 4h budget
 
 
+@pytest.mark.asyncio
+async def test_discovers_nearby_nature_when_graph_candidate_too_far():
+    class NearbyMaps(_Maps):
+        async def isochrone(self, lat, lon, minutes=None):
+            assert minutes == 100  # less than half of four hours outbound
+            ring = [[51.1, 35.4], [51.8, 35.4], [51.8, 36], [51.1, 36], [51.1, 35.4]]
+            return {"features": [{"geometry": {"type": "Polygon", "coordinates": [ring]}}]}
+
+        async def nearby(self, lat, lon, layer, radius):
+            assert layer in ("natural_feature", "park", "garden")
+            assert radius == 7000
+            return [{"name": "بوستان نزدیک", "latitude": 35.75, "longitude": 51.45}] if layer == "park" else []
+
+        async def route(self, origin, destination):
+            if 37.15 in (origin[0], destination[0]):
+                return {"distance_km": 233.1, "duration_hours": 5.51}
+            return {"distance_km": 23.0, "duration_hours": 0.7}
+
+    reply, route = await screen_short_trip(
+        TravelGoal(duration="یک روز", objective="طبیعت نزدیک تهران"), NearbyMaps(),
+        _details(), "دریاچه سقالکسار برای یک روز خوب است",
+    )
+    assert "دریاچه سقالکسار" not in reply
+    assert "بوستان نزدیک" in reply
+    assert route["stops"][0]["name"] == "بوستان نزدیک"
+    assert route["round_trip"] is True and route["total_duration_hours"] == 1.4
+
+
+@pytest.mark.asyncio
+async def test_nearby_cannot_certify_trip_without_return_routing():
+    class NoReturnMaps(_Maps):
+        async def isochrone(self, lat, lon, minutes=None):
+            return None
+
+        async def nearby(self, lat, lon, layer, radius):
+            return [{"name": "پارک", "latitude": 35.75, "longitude": 51.45}]
+
+        async def route(self, origin, destination):
+            return None if origin[0] == 35.75 else {"distance_km": 23, "duration_hours": 0.7}
+
+    reply, route = await screen_short_trip(
+        TravelGoal(duration="یک روز", objective="طبیعت"), NoReturnMaps(), [], "چند پیشنهاد می‌خواهم"
+    )
+    assert route is None
+    assert "پارک" not in reply
+
+
 def test_route_text_replaces_inconsistent_numbers_and_preserves_place_details():
     itinerary = Itinerary.model_validate({
         "origin": {"name": "تهران", "latitude": 35.68, "longitude": 51.38},

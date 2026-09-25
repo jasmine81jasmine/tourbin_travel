@@ -319,13 +319,15 @@ async def chat(
             travel_goal, deps.maps, result.new_messages(), reply_text, itinerary
         )
         if checked is not None:
-            reply_text, _ = checked
+            reply_text, verified_route = checked
+            if verified_route is not None:
+                itinerary = Itinerary.model_validate(verified_route)
             # Alternatives aren't a single combined route. Retain map data
-            # only when exactly the verified stop was finalized.
+            # only when exactly the verified stop(s) were finalized.
             if (itinerary is None or any(s.name not in reply_text for s in itinerary.stops)
                     or reply_text.count("\n- ") > 1):
                 itinerary = None
-            elif itinerary:
+            elif itinerary and verified_route is None:
                 try:
                     revised = await build_trip_map(
                         type("Context", (), {"deps": deps})(),

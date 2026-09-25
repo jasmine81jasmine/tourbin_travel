@@ -4,6 +4,7 @@ TSP only orders stops. Driving time comes from Neshan routing, including the
 return leg; without a routing result we cannot certify a short trip.
 """
 
+import asyncio
 import json
 import re
 from typing import Any
@@ -11,6 +12,7 @@ from typing import Any
 from pydantic_ai.messages import ModelRequest, ToolReturnPart
 
 from src.agent.goals import TravelGoal
+from src.agent.geo import point_in_any_polygon
 from src.agent.tools import DEFAULT_ORIGIN
 
 
@@ -96,8 +98,98 @@ def ground_route_text(reply: str, itinerary: Any) -> str:
     return clean + "\n\n" + "\n".join(lines)
 
 
+def _discovery_layers(goal: TravelGoal) -> tuple[str, ...]:
+    """Search for places to visit, not arbitrary nearby services."""
+    text = (goal.objective + " " + goal.semantic_query).replace("‌", " ").lower()
+    if any(word in text for word in ("طبیعت", "جنگل", "کوه", "دریاچه", "آبشار")):
+        return ("natural_feature", "park", "garden")
+    if any(word in text for word in ("زیارت", "مسجد")):
+        return ("mosque", "historical", "interests")
+    if any(word in text for word in ("تاریخ", "موزه", "دیدنی")):
+        return ("historical", "interests", "garden")
+    if "اقامت" in text or "بوم گردی" in text:
+        return ("lodging_tourist", "interests", "garden")
+    return ("interests", "park", "natural_feature")
+
+
+def _search_centers(origin: tuple[float, float], area: dict[str, Any] | None) -> list[tuple[float, float]]:
+    """Sample a couple of reachable directions; nearby() only searches a circle."""
+    centers = [origin]
+    rings = []
+    for feature in (area or {}).get("features", []):
+        geometry = feature.get("geometry") or {}
+        coords = geometry.get("coordinates") or []
+        if geometry.get("type") == "Polygon" and coords:
+            rings.append(coords[0])
+        elif geometry.get("type") == "MultiPolygon":
+            rings.extend(polygon[0] for polygon in coords if polygon)
+    points = [p for ring in rings for p in ring if isinstance(p, list) and len(p) >= 2]
+    if not points:
+        return centers
+    for edge in (max(points, key=lambda p: p[1]), max(points, key=lambda p: p[0]),
+                 min(points, key=lambda p: p[0]), min(points, key=lambda p: p[1])):
+        # Search within the isochrone, not exactly on its boundary.
+        lat = origin[0] + 0.45 * (edge[1] - origin[0])
+        lon = origin[1] + 0.45 * (edge[0] - origin[1])
+        if point_in_any_polygon(lat, lon, area) and all(abs(lat - a) + abs(lon - b) > 0.02 for a, b in centers):
+            centers.append((lat, lon))
+    return centers[:4]
+
+
+async def _discover_nearby(goal: TravelGoal, maps: Any, origin: tuple[float, float],
+                           budget: float, excluded: set[str]) -> list[tuple[dict, dict, dict, float]]:
+    """Explore Neshan POIs only after graph candidates fail, then verify road time."""
+    try:
+        # Half the driving budget is the maximum outbound time; leave a
+        # margin for an asymmetric return and for time at the destination.
+        area = await maps.isochrone(origin[0], origin[1], minutes=int(budget * 25))
+        if area and not (area.get("features") or []):
+            area = None
+        centers = _search_centers(origin, area)
+        requests = [maps.nearby(lat, lon, layer, 7000) for lat, lon in centers
+                    for layer in _discovery_layers(goal)]
+        batches = await asyncio.gather(*requests, return_exceptions=True)
+        pois: list[dict] = []
+        # Take one result per geographic center/layer before second choices;
+        # otherwise one crowded origin layer can monopolize the route budget.
+        for rank in range(2):
+            for batch in batches:
+                if isinstance(batch, Exception) or not isinstance(batch, list) or len(batch) <= rank:
+                    continue
+                poi = batch[rank]
+                if not isinstance(poi, dict):
+                    continue
+                name, lat, lon = poi.get("name"), poi.get("latitude"), poi.get("longitude")
+                if not name or lat is None or lon is None or name in excluded:
+                    continue
+                if area and not point_in_any_polygon(float(lat), float(lon), area):
+                    continue
+                excluded.add(name)
+                pois.append({"name": name, "latitude": float(lat), "longitude": float(lon)})
+                if len(pois) >= 8:
+                    break
+            if len(pois) >= 8:
+                break
+
+        feasible = []
+        for poi in pois:
+            point = (poi["latitude"], poi["longitude"])
+            outbound, inbound = await asyncio.gather(maps.route(origin, point), maps.route(point, origin))
+            if outbound and inbound:
+                duration = outbound["duration_hours"] + inbound["duration_hours"]
+                if duration <= budget:
+                    feasible.append((poi, outbound, inbound, duration))
+                    if len(feasible) == 3:
+                        break
+        return feasible
+    except Exception:
+        # Unsupported isochrone/nearby subscription or malformed geometry
+        # must not turn an ordinary chat response into a server error.
+        return []
+
+
 async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[Any], reply: str,
-                            itinerary: Any = None) -> tuple[str, None] | None:
+                            itinerary: Any = None) -> tuple[str, dict | None] | None:
     """Return a grounded replacement when the model proposes a short trip.
 
     No inferred coordinates or straight-line estimates are used as road ETA.
@@ -172,6 +264,11 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
                     feasible.append((row, outbound, inbound, drive))
                     break
 
+    discovered = False
+    if not feasible and origin is not None and maps is not None and maps.enabled:
+        feasible = await _discover_nearby(goal, maps, origin, budget, {r.get("name") for r in candidates})
+        discovered = bool(feasible)
+
     if not feasible:
         if verified:
             return (f"با درنظرگرفتن مسیر رفت‌وبرگشت از {origin_name}، مقصدهای بررسی‌شده برای سفر {goal.duration} زمان زیادی در خودرو می‌گیرند. برای اینکه فرصت کافی برای گردش و استراحت بماند، بهتر است مقصد نزدیک‌تری انتخاب کنیم. دوست دارید چند گزینه نزدیک‌تر پیشنهاد بدهم؟", None)
@@ -193,4 +290,21 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
         if isinstance(description, str) and description.strip():
             lines.append(f"  {description.strip()[:240]}")
     lines.append("این زمان‌ها شامل بازدید، استراحت و ترافیک زنده نیستند؛ پیش از حرکت شرایط مسیر را بررسی کنید.")
-    return "\n".join(lines), None
+    if discovered:
+        lines.append("دربارهٔ امکانات و آسان‌بودن مسیر پیاده‌روی این مکان‌ها اطلاعات تأییدشده ندارم؛ اگر همراه کودک یا سالمند هستید، پیش از انتخاب بررسی کنید.")
+    # A single verified option is a usable map itinerary. Several independent
+    # alternatives must never be presented as a combined route.
+    route = None
+    if len(feasible) == 1:
+        row, outbound, inbound, duration = feasible[0]
+        route = {
+            "origin": {"name": origin_name, "latitude": origin[0], "longitude": origin[1]},
+            "stops": [{"order": 1, "name": row["name"], "latitude": row["latitude"], "longitude": row["longitude"],
+                       "leg_distance_km_from_previous": outbound["distance_km"],
+                       "leg_duration_hours_from_previous": outbound["duration_hours"]}],
+            "return_leg": {"leg_distance_km_from_previous": inbound["distance_km"],
+                           "leg_duration_hours_from_previous": inbound["duration_hours"]},
+            "total_distance_km": round(outbound["distance_km"] + inbound["distance_km"], 1),
+            "total_duration_hours": round(duration, 2), "round_trip": True,
+        }
+    return "\n".join(lines), route
