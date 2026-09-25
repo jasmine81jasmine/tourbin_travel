@@ -318,7 +318,7 @@ async def chat(
 
         checked = None if _is_only_greeting(request.message) else await screen_short_trip(
             travel_goal, deps.maps, result.new_messages(), reply_text, itinerary,
-            description_formatter=format_descriptions,
+            description_formatter=lambda rows: format_descriptions(rows, travel_goal),
             graph=graph_repo,
         )
         if checked is not None:

@@ -1,4 +1,4 @@
-"""LLM controls the layout, never the original destination facts."""
+"""Short trip cards use graph facts, not unedited article prose or guessed ETA."""
 
 import json
 from types import SimpleNamespace
@@ -8,39 +8,46 @@ import pytest
 from src.agent import description_format as formatting
 
 
-def test_invalid_llm_sections_cannot_omit_or_reorder_graph_content():
-    segments = ["جنگل سرسبز است.", "مسیر دیدنی است."]
-    assert formatting._assemble([{"heading": "🌿 طبیعت", "end": 1}], segments) is None
-    assert formatting._assemble([{"heading": "🌿 طبیعت", "end": 2},
-                                 {"heading": "مسیر", "end": 1}], segments) is None
-    assert formatting._assemble([{"heading": "فاصله ۲ ساعت", "end": 2}], segments) is None
-    assert formatting._assemble([{"heading": "🌿 طبیعت", "end": 1},
-                                 {"heading": "مسیر", "end": 2}], segments) == (
-        "##### 🌿 طبیعت\n\nجنگل سرسبز است.\n\n##### مسیر\n\nمسیر دیدنی است."
+def test_card_rejects_unverified_driving_figures():
+    assert formatting._render_card({"why": "جنگل است", "activity": "پیاده‌روی",
+                                    "facilities": "", "tip": "۲ ساعت رانندگی"}) is None
+    assert formatting._render_card({"why": "طبیعت سرسبز", "activity": "پیاده‌روی",
+                                    "facilities": "سرویس بهداشتی", "tip": "کفش مناسب"}) == (
+        "- **چرا این مقصد؟** طبیعت سرسبز\n- **پیشنهاد بازدید** پیاده‌روی\n"
+        "- **امکانات** سرویس بهداشتی\n- **نکتهٔ مسیر** کفش مناسب"
     )
 
 
 @pytest.mark.asyncio
-async def test_model_selects_headings_but_full_description_survives(monkeypatch):
-    description = "جنگل سرسبز است. مسیر دیدنی است."
+async def test_model_converts_graph_article_and_facilities_into_short_card(monkeypatch):
+    article = "مقالهٔ مفصل و تکراری دربارهٔ درکه. " * 40
 
     class FakeAgent:
         async def run(self, prompt):
-            assert json.loads(prompt)["destinations"][0]["segments"] == ["جنگل سرسبز است.", "مسیر دیدنی است."]
-            return SimpleNamespace(output=json.dumps({"destinations": [{"name": "درکه", "sections": [
-                {"heading": "🌿 طبیعت", "end": 1}, {"heading": "دسترسی", "end": 2}
-            ]}]}))
+            payload = json.loads(prompt)
+            assert payload["destinations"][0]["data"]["facilities"] == ["کافه", "رستوران"]
+            return SimpleNamespace(output=json.dumps({"destinations": [{
+                "name": "درکه", "why": "رودخانه و کوچه‌باغ‌های سرسبز دارد.",
+                "activity": "صبح از مسیر پایین‌دست پیاده‌روی کنید.",
+                "facilities": "کافه و رستوران دارد.", "tip": "کفش راحت همراه ببرید."
+            }]}))
 
     monkeypatch.setattr(formatting, "_formatter", lambda: FakeAgent())
-    formatted = await formatting.format_descriptions({"درکه": description})
-    assert formatted["درکه"] == "##### 🌿 طبیعت\n\nجنگل سرسبز است.\n\n##### دسترسی\n\nمسیر دیدنی است."
+    cards = await formatting.format_descriptions({"درکه": {"description": article,
+                                                            "facilities": ["کافه", "رستوران"]}})
+    assert "**پیشنهاد بازدید**" in cards["درکه"]
+    assert "**امکانات** کافه و رستوران دارد." in cards["درکه"]
+    assert "مقالهٔ مفصل" not in cards["درکه"]
 
 
 @pytest.mark.asyncio
-async def test_bad_model_reply_uses_complete_graph_description(monkeypatch):
+async def test_bad_model_reply_falls_back_to_short_graph_fact_not_article(monkeypatch):
     class FakeAgent:
         async def run(self, prompt):
-            return SimpleNamespace(output='{"destinations":[{"name":"درکه","sections":[]}]}')
+            return SimpleNamespace(output='{"destinations":[]}')
 
     monkeypatch.setattr(formatting, "_formatter", lambda: FakeAgent())
-    assert await formatting.format_descriptions({"درکه": "یک متن کامل است."}) == {"درکه": "یک متن کامل است."}
+    article = "در این مقاله با ما همراه باشید. " + "طبیعت زیبایی دارد. " * 40
+    cards = await formatting.format_descriptions({"درکه": {"description": article, "categories": ["طبیعت"]}})
+    assert "**چرا این مقصد؟**" in cards["درکه"]
+    assert len(cards["درکه"]) < len(article)

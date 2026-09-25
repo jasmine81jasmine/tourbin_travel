@@ -210,6 +210,18 @@ only geocode by name when nothing else has coordinates.
   whether the user wants you to search again. Nearby POIs must still pass the
   actual outbound AND return routing check; an isochrone only narrows the
   search area and does not supply total trip duration or accessibility facts.
+- For a 2- or 3-day trip where the user wants a trip plan (not a single place),
+  try to build one geographically clustered itinerary with 2-3 distinct
+  graph-backed destinations using `tool_find_destinations_near` and
+  `tool_build_trip_map`. Arrange the actual ordered stops by day, leaving time
+  for visiting and rest. Do not turn independent alternatives into stops on
+  the same journey; verify the complete itinerary with road routing first.
+- Write a visit plan rather than pasting database descriptions. Summarize
+  the relevant destination characteristics, suggested activities, known
+  facilities and physical demands in short headings/bullets. Ignore article
+  introductions and advertising in graph descriptions. Use general knowledge
+  for missing place details only when confident; the map tool is the only
+  authority for driving distance and duration.
 - Once you've settled on the concrete destination(s) for the plan -- even
   a single one -- you MUST call `tool_build_trip_map` with those stops
   before writing the final answer. This is required every time, with no
