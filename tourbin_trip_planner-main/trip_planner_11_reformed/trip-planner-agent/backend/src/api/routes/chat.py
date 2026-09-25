@@ -360,13 +360,19 @@ async def chat(
             except Exception:
                 logger.warning("Could not serialize itinerary_result", exc_info=True)
         elif not _is_only_greeting(request.message):
-            # Fallback: the agent settled on (a) destination(s) this turn but
-            # didn't itself call tool_build_trip_map (prompt says it must,
-            # but LLM tool-calling isn't 100% guaranteed) -- reconstruct a
-            # simple, straight-line-distance itinerary from whatever
-            # tool_get_destination_details/tool_find_destinations_near
-            # already returned this turn, so the response still carries map
-            # data rather than silently omitting it.
+            # Narrow fallback, single-destination only: if the agent named
+            # exactly one concrete place this turn (via
+            # tool_get_destination_details) but didn't itself call
+            # tool_build_trip_map (prompt says it must, but LLM tool-calling
+            # isn't 100% guaranteed), reconstruct a simple, straight-line
+            # single-stop itinerary so the response still carries map data.
+            # extract_finalized_destination_coords deliberately returns []
+            # (no itinerary) whenever zero or *more than one* destination
+            # was touched this turn -- a multi-stop itinerary must always
+            # come from tool_build_trip_map's real TSP ordering + routing,
+            # never from chaining together whatever destinations happened to
+            # be looked up (which previously merged unrelated alternative
+            # suggestions into one bogus route -- see linking.py docstring).
             try:
                 fallback_stops = linking.extract_finalized_destination_coords(result.new_messages())
                 if fallback_stops:

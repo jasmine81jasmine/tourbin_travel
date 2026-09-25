@@ -103,20 +103,38 @@ def extract_recommended_destination_ids(all_messages: list[Any]) -> list[str]:
 def extract_finalized_destination_coords(new_messages: list[Any]) -> list[dict[str, Any]]:
     """Best-effort fallback source of map data for the API response, used
     only when the agent's own `tool_build_trip_map` call didn't happen this
-    turn (see chat.py). Deliberately narrower than
-    `extract_recommended_destination_ids`: it only reads
-    `tool_get_destination_details` / `tool_find_destinations_near` results
-    (the tools the system prompt says to use once a place is actually named
-    or being combined into an itinerary -- never the broad candidate list
-    from `tool_search_destinations`), and only from `new_messages` (this
-    turn only, not prior turns pulled in via message_history), so it stays
-    a reasonable proxy for "what the agent settled on" rather than
-    "everything ever searched." Returns `{id, name, latitude, longitude}`
-    dicts, deduplicated by id, in first-seen (call) order.
+    turn (see chat.py).
+
+    This is intentionally a *narrow safety net*, not a general itinerary
+    builder -- it exists only to cover the single case of "the agent named
+    exactly one concrete destination this turn but forgot to call
+    `tool_build_trip_map`". It must NOT try to reconstruct a multi-stop
+    itinerary on its own, because:
+
+    - `tool_get_destination_details` is also called once per candidate when
+      the agent is presenting several independent *alternative* options for
+      the user to choose between (e.g. "می‌تونی به این ۵ جا بری"). Those are
+      not stops on one trip, and chaining them together with straight-line
+      distances produced exactly this bug: a fake 231km "route" through five
+      unrelated day-trip alternatives, with a nonsensical visiting order and
+      distances that don't match anything the user asked about.
+    - `tool_find_destinations_near` returns a *candidate* list of nearby
+      destinations for the agent to consider, not a confirmed selection --
+      it must never contribute to itinerary coordinates at all.
+
+    So this function only reads `tool_get_destination_details` results
+    (the one tool that resolves a single, explicitly-named place), and only
+    from `new_messages` (this turn only). If more than one distinct
+    destination id was resolved this turn, that's a sign of either (a)
+    several alternatives being compared, or (b) a genuine multi-stop plan --
+    and in both cases the *real* itinerary (TSP order + real routing +
+    correct round-trip totals) must come from `tool_build_trip_map`, never
+    from naive chaining here. Returns `[]` in that case so the API simply
+    omits `itinerary` rather than showing wrong data.
     """
     from pydantic_ai.messages import ModelRequest, ToolReturnPart
 
-    _SOURCE_TOOLS = {"tool_get_destination_details", "tool_find_destinations_near"}
+    _SOURCE_TOOLS = {"tool_get_destination_details"}
 
     seen: dict[str, dict[str, Any]] = {}
     for msg in new_messages:
@@ -139,6 +157,11 @@ def extract_finalized_destination_coords(new_messages: list[Any]) -> list[dict[s
                 name = row.get("name")
                 if dest_id and name and lat is not None and lon is not None and dest_id not in seen:
                     seen[dest_id] = {"id": dest_id, "name": name, "latitude": lat, "longitude": lon}
+
+    if len(seen) != 1:
+        # Zero resolved, or more than one -- either way, not a safe single
+        # finalized destination to build a fallback itinerary from.
+        return []
     return list(seen.values())
 
 

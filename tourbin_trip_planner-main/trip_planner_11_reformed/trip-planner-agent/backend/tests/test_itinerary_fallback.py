@@ -39,7 +39,10 @@ def test_extract_finalized_coords_reads_details_tool():
     assert result == [{"id": "d1", "name": "دماوند", "latitude": 35.95, "longitude": 52.1}]
 
 
-def test_extract_finalized_coords_reads_find_near_list():
+def test_extract_finalized_coords_ignores_find_near_tool():
+    # tool_find_destinations_near returns *candidates* to consider, not a
+    # confirmed selection -- it must never contribute itinerary coordinates,
+    # even for a single destination.
     messages = [
         _tool_return(
             "tool_find_destinations_near",
@@ -49,8 +52,33 @@ def test_extract_finalized_coords_reads_find_near_list():
             ],
         )
     ]
-    result = linking.extract_finalized_destination_coords(messages)
-    assert [r["id"] for r in result] == ["d1", "d2"]
+    assert linking.extract_finalized_destination_coords(messages) == []
+
+
+def test_extract_finalized_coords_returns_empty_for_multiple_alternatives():
+    # Regression test for the "5 alternative day-trip suggestions got
+    # chained into one 231km fake route" bug: when the agent resolves
+    # several distinct destinations via tool_get_destination_details in the
+    # same turn (e.g. describing multiple independent options for the user
+    # to pick from), that is NOT a safe signal of one finalized multi-stop
+    # plan -- only tool_build_trip_map's real TSP + routing output is. The
+    # fallback must return [] here so the API omits `itinerary` rather than
+    # fabricating a bogus combined route.
+    messages = [
+        _tool_return(
+            "tool_get_destination_details",
+            {"id": "d1", "name": "پیست آبعلی", "latitude": 35.7708, "longitude": 51.9910},
+        ),
+        _tool_return(
+            "tool_get_destination_details",
+            {"id": "d2", "name": "رودخانه دارآباد", "latitude": 35.8190, "longitude": 51.4912},
+        ),
+        _tool_return(
+            "tool_get_destination_details",
+            {"id": "d3", "name": "درکه", "latitude": 35.8098, "longitude": 51.3807},
+        ),
+    ]
+    assert linking.extract_finalized_destination_coords(messages) == []
 
 
 def test_extract_finalized_coords_ignores_broad_search_tool():
