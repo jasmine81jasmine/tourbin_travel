@@ -20,7 +20,7 @@ from src.agent.regions import expand_location
 
 # Tehran city-center coordinates, used as the default trip origin when the
 # user hasn't given/updated one (matches SYSTEM_PROMPT's default assumption).
-_DEFAULT_ORIGIN = {"name": "تهران", "latitude": 35.6892, "longitude": 51.3890}
+DEFAULT_ORIGIN = {"name": "تهران", "latitude": 35.6892, "longitude": 51.3890}
 
 # Jalali (Persian solar calendar) month -> season. Farvardin-Khordad (1-3) is
 # بهار, Tir-Shahrivar (4-6) تابستان, Mehr-Azar (7-9) پاییز, Dey-Esfand (10-12)
@@ -275,10 +275,10 @@ async def build_trip_map(
     straight-line distance estimates when the maps API is unavailable, so
     it always returns something usable.
     """
-    origin = origin or _DEFAULT_ORIGIN
+    origin = origin or DEFAULT_ORIGIN
     origin_coords = await _resolve_coordinates(
         ctx, origin.get("name", "مبدا"), latitude=origin.get("latitude"), longitude=origin.get("longitude")
-    ) or {"latitude": _DEFAULT_ORIGIN["latitude"], "longitude": _DEFAULT_ORIGIN["longitude"]}
+    ) or {"latitude": DEFAULT_ORIGIN["latitude"], "longitude": DEFAULT_ORIGIN["longitude"]}
 
     resolved: list[dict[str, Any]] = []
     unresolved: list[str] = []
@@ -452,6 +452,47 @@ async def find_nearby_amenities(
     if ctx.deps.maps is None or not ctx.deps.maps.enabled:
         return {"status": "skipped", "reason": "maps API not configured"}
     return await ctx.deps.maps.nearby(latitude, longitude, layer, radius_m)
+
+
+def build_itinerary_from_coords(
+    stops: list[dict[str, Any]], origin: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Build the same map-ready itinerary shape as `build_trip_map`, but
+    from stops that already have coordinates and a fixed order (no TSP, no
+    routing calls) -- straight-line legs only via `geo.haversine_km`. Used
+    as the deterministic fallback in chat.py when the agent settles on
+    destination(s) without itself calling `tool_build_trip_map`, so the API
+    response still carries map data even if that tool call was skipped.
+    """
+    origin = origin or DEFAULT_ORIGIN
+    ordered_stops: list[dict[str, Any]] = []
+    prev = {"latitude": origin["latitude"], "longitude": origin["longitude"]}
+    total_distance_km = 0.0
+    total_duration_hours = 0.0
+    for position, stop in enumerate(stops, start=1):
+        dist = haversine_km(prev["latitude"], prev["longitude"], stop["latitude"], stop["longitude"])
+        duration = estimate_duration_hours(dist)
+        total_distance_km += dist
+        total_duration_hours += duration
+        ordered_stops.append(
+            {
+                "order": position,
+                "name": stop["name"],
+                "latitude": stop["latitude"],
+                "longitude": stop["longitude"],
+                "leg_distance_km_from_previous": round(dist, 1),
+                "leg_duration_hours_from_previous": round(duration, 2),
+            }
+        )
+        prev = stop
+    return {
+        "origin": {"latitude": origin["latitude"], "longitude": origin["longitude"], "name": origin.get("name", "مبدا")},
+        "stops": ordered_stops,
+        "total_distance_km": round(total_distance_km, 1),
+        "total_duration_hours": round(total_duration_hours, 2),
+        "round_trip": False,
+        "used_real_routing": False,
+    }
 
 
 def current_season(now: datetime | None = None) -> str:

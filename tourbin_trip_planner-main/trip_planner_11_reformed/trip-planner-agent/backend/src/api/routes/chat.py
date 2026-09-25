@@ -14,6 +14,7 @@ from src.adapters.neshan_client import get_neshan_client
 from src.agent.agent import get_trip_planner_agent, update_travel_goal
 from src.agent.dependencies import AgentDeps
 from src.agent.goals import TravelGoal
+from src.agent.tools import build_itinerary_from_coords
 from src.api.schemas import ChatRequest, ChatResponse, Itinerary, SessionResponse
 from src.memory import linking
 from src.memory.client import get_embedding_provider, get_memory_client
@@ -358,6 +359,20 @@ async def chat(
                 itinerary = Itinerary.model_validate(deps.itinerary_result)
             except Exception:
                 logger.warning("Could not serialize itinerary_result", exc_info=True)
+        elif not _is_only_greeting(request.message):
+            # Fallback: the agent settled on (a) destination(s) this turn but
+            # didn't itself call tool_build_trip_map (prompt says it must,
+            # but LLM tool-calling isn't 100% guaranteed) -- reconstruct a
+            # simple, straight-line-distance itinerary from whatever
+            # tool_get_destination_details/tool_find_destinations_near
+            # already returned this turn, so the response still carries map
+            # data rather than silently omitting it.
+            try:
+                fallback_stops = linking.extract_finalized_destination_coords(result.new_messages())
+                if fallback_stops:
+                    itinerary = Itinerary.model_validate(build_itinerary_from_coords(fallback_stops))
+            except Exception:
+                logger.warning("Could not build fallback itinerary", exc_info=True)
 
         return ChatResponse(reply=reply_text, session_id=session_id, user_id=user_id, itinerary=itinerary)
     except ModelAPIError as e:

@@ -100,6 +100,48 @@ def extract_recommended_destination_ids(all_messages: list[Any]) -> list[str]:
     return list(ids)
 
 
+def extract_finalized_destination_coords(new_messages: list[Any]) -> list[dict[str, Any]]:
+    """Best-effort fallback source of map data for the API response, used
+    only when the agent's own `tool_build_trip_map` call didn't happen this
+    turn (see chat.py). Deliberately narrower than
+    `extract_recommended_destination_ids`: it only reads
+    `tool_get_destination_details` / `tool_find_destinations_near` results
+    (the tools the system prompt says to use once a place is actually named
+    or being combined into an itinerary -- never the broad candidate list
+    from `tool_search_destinations`), and only from `new_messages` (this
+    turn only, not prior turns pulled in via message_history), so it stays
+    a reasonable proxy for "what the agent settled on" rather than
+    "everything ever searched." Returns `{id, name, latitude, longitude}`
+    dicts, deduplicated by id, in first-seen (call) order.
+    """
+    from pydantic_ai.messages import ModelRequest, ToolReturnPart
+
+    _SOURCE_TOOLS = {"tool_get_destination_details", "tool_find_destinations_near"}
+
+    seen: dict[str, dict[str, Any]] = {}
+    for msg in new_messages:
+        if not isinstance(msg, ModelRequest):
+            continue
+        for part in msg.parts:
+            if not isinstance(part, ToolReturnPart) or part.tool_name not in _SOURCE_TOOLS:
+                continue
+            content = part.content
+            try:
+                data = json.loads(content) if isinstance(content, str) else content
+            except (TypeError, ValueError):
+                continue
+            rows = data if isinstance(data, list) else [data]
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                dest_id = row.get("id")
+                lat, lon = row.get("latitude"), row.get("longitude")
+                name = row.get("name")
+                if dest_id and name and lat is not None and lon is not None and dest_id not in seen:
+                    seen[dest_id] = {"id": dest_id, "name": name, "latitude": lat, "longitude": lon}
+    return list(seen.values())
+
+
 async def link_trace_recommendations(driver: AsyncDriver, trace_id: str, destination_ids: list[str]) -> int:
     """(:ReasoningTrace)-[:RECOMMENDED]->(:Destination) for every destination
     id surfaced by this turn's tool calls, so a recommendation is a real

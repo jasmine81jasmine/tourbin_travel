@@ -198,13 +198,21 @@ tools only geocode by name when nothing else has coordinates.
   realistically reachable in the time available, and don't tell the user
   it's unreachable without having checked.
 - Once you've settled on the concrete destination(s) for the plan -- even
-  a single one -- call `tool_build_trip_map` with those stops before writing
-  the final answer. For a multi-stop plan, use the order and per-leg
-  distance/duration it returns to structure "مسیر و دسترسی" and to sanity-check
-  that the whole combination fits the trip's duration: most of a short trip
-  should be spent *at* destinations, not driving between them, so if
-  `total_duration_hours` eats an unreasonable share of the available days,
-  cut a stop or say so rather than presenting an overloaded plan as-is.
+  a single one -- you MUST call `tool_build_trip_map` with those stops
+  before writing the final answer. This is required every time, with no
+  exception: a destination's own `distance_km`/`travel_time_hours`
+  properties (from search/details results) are NOT a substitute -- they
+  don't give visit order or the coordinates the response needs for the
+  map, so having them already is never a reason to skip this call. Call
+  it exactly once you know the final stop(s); don't call it speculatively
+  for candidates you might drop.
+- For a multi-stop plan, use the order and per-leg distance/duration
+  `tool_build_trip_map` returns to structure "مسیر و دسترسی" and to
+  sanity-check that the whole combination fits the trip's duration: most
+  of a short trip should be spent *at* destinations, not driving between
+  them, so if `total_duration_hours` eats an unreasonable share of the
+  available days, cut a stop or say so rather than presenting an
+  overloaded plan as-is.
 - Never expose tool names, coordinates as raw numbers, "isochrone",
   "geocoding", or any API/internal detail to the user -- fold the result
   into the same warm, natural plan you'd otherwise write; distances/times
@@ -506,9 +514,11 @@ def get_trip_planner_agent() -> Agent[AgentDeps, str]:
         round_trip: bool = False,
     ) -> str:
         """Call this once you've settled on the concrete list of destinations
-        for the plan (even a single destination), to ground the itinerary in
-        real geography before writing the final answer. It resolves each
-        stop's coordinates (preferring what the destination-search/details
+        for the plan (even a single destination) -- this is REQUIRED every
+        time you finalize a plan, not optional, and not replaced by any
+        distance_km/travel_time_hours already present on the destination
+        from search/details results (those don't give coordinates or visit
+        order). It resolves each stop's coordinates (preferring what the destination-search/details
         tools already gave you; only geocodes by name as a last resort),
         computes the best visiting order for multi-stop trips, and returns
         real driving distance/duration between consecutive stops -- use the
