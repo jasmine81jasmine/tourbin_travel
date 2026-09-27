@@ -8,8 +8,41 @@ response parsing are correct, independent of network conditions.
 """
 
 import pytest
+import httpx
 
 from src.adapters.neshan_client import NeshanClient
+
+
+@pytest.mark.asyncio
+async def test_full_request_header_logged_only_once_when_explicitly_enabled(monkeypatch, caplog):
+    monkeypatch.setenv("NESHAN_LOG_API_KEY_ONCE", "1")
+    client = NeshanClient(api_key="fake-secret-for-test")
+    sent_headers = []
+
+    async def fake_get(self, url, *, params, headers):
+        sent_headers.append(headers)
+        return httpx.Response(200, json={"items": []}, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+    await client.geocode("آزمایش اول")
+    await client.geocode("آزمایش دوم")
+
+    assert [headers["Api-Key"] for headers in sent_headers] == ["fake-secret-for-test"] * 2
+    diagnostic = [record.message for record in caplog.records if "one-shot diagnostic" in record.message]
+    assert diagnostic == ["Neshan one-shot diagnostic: /geocoding/v1 Api-Key=fake-secret-for-test"]
+
+
+@pytest.mark.asyncio
+async def test_api_key_is_not_logged_by_default(monkeypatch, caplog):
+    monkeypatch.delenv("NESHAN_LOG_API_KEY_ONCE", raising=False)
+    client = NeshanClient(api_key="fake-secret-for-test")
+
+    async def fake_get(self, url, *, params, headers):
+        return httpx.Response(200, json={"items": []}, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+    await client.geocode("آزمایش")
+    assert "fake-secret-for-test" not in caplog.text
 
 
 # ---------------------------------------------------------------------

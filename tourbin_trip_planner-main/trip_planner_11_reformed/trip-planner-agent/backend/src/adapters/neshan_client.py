@@ -16,6 +16,7 @@ Design notes:
 from __future__ import annotations
 
 import logging
+import os
 from functools import lru_cache
 from typing import Any
 
@@ -60,6 +61,8 @@ class NeshanClient:
     def __init__(self, api_key: str, base_url: str = _BASE):
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
+        # Explicit server-only, one-shot diagnostic. Never enabled by default.
+        self._log_api_key_once = os.getenv("NESHAN_LOG_API_KEY_ONCE") == "1"
 
     @property
     def enabled(self) -> bool:
@@ -72,9 +75,13 @@ class NeshanClient:
         if not self.enabled:
             return None
         url = f"{self._base_url}{path}"
+        headers = self._headers()
+        if self._log_api_key_once:
+            self._log_api_key_once = False
+            logger.warning("Neshan one-shot diagnostic: %s Api-Key=%s", path, headers["Api-Key"])
         try:
             async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-                resp = await client.get(url, params=params, headers=self._headers())
+                resp = await client.get(url, params=params, headers=headers)
             if resp.status_code != 200:
                 logger.warning("Neshan %s returned %s: %s", path, resp.status_code, resp.text[:300])
                 return None
