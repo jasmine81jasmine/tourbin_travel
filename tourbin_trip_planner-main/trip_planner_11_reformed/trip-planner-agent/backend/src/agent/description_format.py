@@ -40,7 +40,10 @@ def _fallback_card(row: dict[str, Any]) -> str:
         amenities = row.get("facilities") or row.get("facilities_level")
         if isinstance(amenities, list):
             amenities = "، ".join(map(str, amenities))
-        lines.append(f"- **امکانات:** {facilities or amenities}")
+        # A database level of «دارد» says nothing about which amenities
+        # actually exist; don't present it as helpful destination detail.
+        if facilities or str(amenities).strip() not in {"دارد", "موجود", "None", ""}:
+            lines.append(f"- **امکانات:** {facilities or amenities}")
     if tip or row.get("physical_readiness"):
         lines.append(f"- **دسترسی:** {tip or 'آمادگی بدنی: ' + str(row['physical_readiness'])}")
     return "\n".join(lines) if lines else "- **ویژگی‌ها:** برای این مقصد جزئیات تأییدشده‌ای ندارم؛ امکانات و شرایط دسترسی را پیش از حرکت بررسی کنید."

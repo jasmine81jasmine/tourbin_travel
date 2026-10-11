@@ -263,6 +263,12 @@ above as a prioritized backlog for the ES team.
   agent does not guess a memory answer. A broad request to plan from memory
   without a duration first screens a clearly labelled one-day assumption near
   Tehran, rather than presenting unverified faraway destinations as a plan.
+- The final route explanation is written *after* feasibility screening from
+  the destinations actually offered and user-scoped trip context. A follow-up
+  asking why those routes were chosen reads the last proposed routes rather
+  than inventing a generic rationale. Choosing one previously offered place
+  keeps that destination as the plan's anchor; vehicle questions answer about
+  its recorded access instead of starting a new search.
 
 This is the same pattern Lenny's Memory uses for podcast preference
 learning; we just added the tourism-specific `Trip`/`LIKED`/`DISLIKED`

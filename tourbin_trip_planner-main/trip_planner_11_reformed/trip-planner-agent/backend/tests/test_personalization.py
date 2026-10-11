@@ -1,11 +1,13 @@
 """The visible reason must be supported by the selected place and this user."""
 
+import json
 from types import SimpleNamespace
 
 import pytest
 
 from src.agent.goals import TravelGoal
 from src.agent.agent import update_travel_goal
+from src.agent import personalization
 from src.agent.personalization import explain_selected_plans
 from src.agent.tools import search_destinations, semantic_search_destinations
 from src.memory.graph import TripGraphRepository
@@ -29,7 +31,7 @@ async def test_explains_current_goal_and_remembered_preference():
     text = await explain_selected_plans(
         TravelGoal(objective="یک سفر طبیعت‌گردی"), route("جنگل الف"), Graph(), memory, "user-a"
     )
-    assert "جنگل الف" in text and "در این سفر" in text and "گفتگوهای قبلی" in text
+    assert "جنگل الف" in text and "از قبل یادم هست" in text
     assert "جنگل ب" not in text
 
 
@@ -44,12 +46,15 @@ async def test_no_unsupported_memory_or_unverified_feature():
         async def get_destination_details(self, name):
             return {"name": name, "description": "جنگلی خلوت", "categories": []}
 
-    assert await explain_selected_plans(TravelGoal(objective="جنگل خلوت"), route("جنگل الف"), NoTags(), None, "u") == ""
-    assert await explain_selected_plans(TravelGoal(objective="طبیعت", avoid=["طبیعت"]), route("جنگل الف"), Graph(), None, "u") == ""
-    assert await explain_selected_plans(
+    assert "اطلاعی در مورد هیجان ندارم" not in await explain_selected_plans(
+        TravelGoal(objective="جنگل خلوت"), route("جنگل الف"), NoTags(), None, "u")
+    assert "به خواسته‌ات نزدیک است" not in await explain_selected_plans(
+        TravelGoal(objective="طبیعت", avoid=["طبیعت"]), route("جنگل الف"), Graph(), None, "u")
+    changed = await explain_selected_plans(
         TravelGoal(objective="طبیعت؛ اصلاح جدید: به‌جایش سفر تاریخی می‌خواهم"),
         route("جنگل الف"), Graph(), None, "u"
-    ) == ""
+    )
+    assert "در این سفر به طبیعت گفتی" not in changed
 
 
 @pytest.mark.asyncio
@@ -59,7 +64,8 @@ async def test_preference_not_loaded_from_another_user_or_from_dislikes():
         return [SimpleNamespace(category="avoid", preference="از طبیعت بدم می‌آید")]
 
     memory = SimpleNamespace(long_term=SimpleNamespace(get_preferences_for=prefs))
-    assert await explain_selected_plans(TravelGoal(), route("جنگل الف"), Graph(), memory, "correct-user") == ""
+    text = await explain_selected_plans(TravelGoal(), route("جنگل الف"), Graph(), memory, "correct-user")
+    assert "از قبل یادم هست" not in text and "بدم می‌آید" not in text
 
 
 @pytest.mark.asyncio
@@ -69,7 +75,7 @@ async def test_new_explicit_interest_overrides_old_preference():
         TravelGoal(objective="طبیعت؛ اصلاح جدید: به‌جایش سفر تاریخی می‌خواهم"),
         route("جنگل الف"), Graph(), memory, "user-a"
     )
-    assert text == ""
+    assert "از قبل یادم هست طبیعت" not in text
 
 
 @pytest.mark.asyncio
@@ -80,7 +86,7 @@ async def test_liked_place_is_not_confused_with_merely_proposed_trips():
             return {"liked": ["جنگل الف"], "trips": [{"destinations": ["جنگل ب"]}]}
 
     text = await explain_selected_plans(TravelGoal(), route("جنگل الف"), LikedGraph(), None, "user-a")
-    assert "قبلاً هم پسندیده بودی" in text
+    assert "قبلاً پسندیده بودی" in text
     assert "جنگل ب" not in text
 
 
@@ -118,7 +124,7 @@ async def test_camping_evidence_and_prior_preference_in_followup():
                    accommodation=["کمپ"]), route("آبشار لاتون"), LatonGraph(), memory, "user-a"
     )
     assert "آبشار لاتون" in text and "کمپ" in text
-    assert "گفتگوهای قبلی" in text and "طبیعت" in text
+    assert "از قبل یادم هست" in text and "طبیعت" in text
     assert "هفته پیش" not in text
 
 
@@ -127,7 +133,7 @@ async def test_named_place_can_be_explained_without_map_or_tag_match():
     text = await explain_selected_plans(
         TravelGoal(objective="برای مقصد الف برنامه بده"), route("مقصد الف"), Graph(), None, "u"
     )
-    assert "خودت این مقصد را انتخاب کردی" in text and "طبیعت" in text
+    assert "مقصد الف" in text and "طبیعت" in text
 
 
 @pytest.mark.asyncio
@@ -239,11 +245,10 @@ async def test_explanation_shows_extracted_trip_insights_and_verified_destinatio
         companions=["دوستان"], season="بهار", transport="آفرود",
     )
     text = await explain_selected_plans(goal, route("مقصد الف"), AdventureGraph(), None, "user-a")
-    assert "**درخواست این سفر:**" in text
+    assert "### چرا این سفر را پیشنهاد کردم؟" in text
     assert "ماجراجویانه" in text and "دوستان" in text
-    assert "کوهنوردی" in text and "کمپ" in text
-    assert "بهار هم در فصل‌های مناسب" in text and "دسترسی با «آفرود»" in text
-    assert "مجاز بودن محل دقیق کمپ" in text
+    assert "کوهنوردی" in text
+    assert "جادهٔ آسان" not in text
     assert "گفتگوهای قبلی" not in text
     assert "مناسب دوستان" not in text  # companions are known; group suitability isn't verified
 
@@ -252,9 +257,9 @@ async def test_explanation_shows_extracted_trip_insights_and_verified_destinatio
 async def test_adventure_is_not_inferred_from_nature_tag_alone():
     goal = TravelGoal(moods=["ماجراجویانه"], companions=["پارتنر"])
     text = await explain_selected_plans(goal, route("جنگل الف"), Graph(), None, "user-a")
-    assert "همراهان: پارتنر" in text
-    assert "دربارهٔ میزان هیجان این مقصد اطلاعات تأییدشدهٔ کافی ندارم" in text
-    assert "با سفر ماجراجویانه‌ای که خواستی هماهنگ است" not in text
+    assert "پارتنر" in text
+    assert "دربارهٔ میزان هیجان" not in text
+    assert "ماجراجویی" not in text or "به حال‌وهوای پرتحرکی" not in text
 
 
 @pytest.mark.asyncio
@@ -267,5 +272,66 @@ async def test_explanation_credits_prior_request_without_calling_it_current_or_d
         "categories": ["طبیعت"], "moods": ["ماجراجویانه"]
     })
     text = await explain_selected_plans(goal, route("کوه الف"), AdventureGraph(), None, "user-a")
-    assert "در سفر قبلی‌ات" in text and "حال‌وهوای ماجراجویانهٔ سفر قبلی‌ات" in text
+    assert "سفر قبلی‌ات" in text and "ماجراجویانه" in text
     assert "در این سفر به طبیعت گفتی" not in text and "همیشه" not in text
+
+
+@pytest.mark.asyncio
+async def test_new_spouse_trip_acknowledges_previous_mood_without_claiming_nature_is_thrilling():
+    goal = TravelGoal(duration="سه روز", companions=["همسر"],
+                      prior_insights={"moods": ["ماجراجویانه"]})
+    text = await explain_selected_plans(goal, route("جنگل الف"), Graph(), None, "user-a")
+    intro, why = text.split("**مسیر 1:**")
+    assert "قبلی‌ات" in intro and "همسر" in intro
+    assert "هیجان" not in why and "دربارهٔ میزان هیجان" not in text
+
+
+@pytest.mark.asyncio
+async def test_one_natural_reason_per_final_route_with_writer_receiving_verified_facts():
+    class RoutesGraph(Graph):
+        async def get_destination_details(self, name):
+            return {"name": name, "categories": ["طبیعت"], "trip_types": [],
+                    "description": f"{name} در دامنهٔ البرز قرار دارد."}
+
+    async def writer(payload):
+        assert payload["this_trip"]["duration"] == "سه روز"
+        assert payload["previous_trip_requests_not_durable"] == {"moods": ["ماجراجویانه"]}
+        assert [p["stops"][0]["name"] for p in payload["plans"]] == ["آبشار الف", "جنگل ب"]
+        return {"intro": "از گفت‌وگوی قبلی‌مان یادم هست سفر پرتحرک دوست داشتی.",
+                "plans": [{"index": 1, "why": "آبشار الف را برای دیدن طبیعت دامنهٔ البرز گذاشتم."},
+                          {"index": 2, "why": "جنگل ب را برای گشت‌وگذار در همان محدوده در نظر گرفتم."}]}
+
+    text = await explain_selected_plans(
+        TravelGoal(duration="سه روز", prior_insights={"moods": ["ماجراجویانه"]}),
+        [*route("آبشار الف"), *route("جنگل ب")], RoutesGraph(), None, "user-a", writer=writer,
+    )
+    assert text.count("**مسیر 1:**") == 1 and text.count("**مسیر 2:**") == 1
+    assert "دیدن طبیعت دامنهٔ البرز" in text
+    assert "ویژگی «طبیعت»" not in text and "اطلاعات تأییدشدهٔ کافی ندارم" not in text
+
+
+@pytest.mark.asyncio
+async def test_reason_writer_rejects_invented_memory_and_route_numbers(monkeypatch):
+    payload = {"previous_trip_requests_not_durable": {}, "durable_preferences": [],
+               "plans": [{"stops": [{"name": "جنگل الف"}]}]}
+
+    class FakeAgent:
+        output = ""
+
+        async def run(self, prompt):
+            return SimpleNamespace(output=self.output)
+
+    fake = FakeAgent()
+    monkeypatch.setattr(personalization, "_reason_writer", lambda: fake)
+    fake.output = json.dumps({"intro": "یادم هست همیشه جنگل را دوست داشتی.",
+                              "plans": [{"index": 1, "why": "جنگل الف برای تو خوب است."}]}, ensure_ascii=False)
+    assert await personalization.write_explanation(payload) is None
+    fake.output = json.dumps({"intro": "این بار مسیر کوتاهی پیشنهاد می‌کنم.",
+                              "plans": [{"index": 1, "why": "راه ۲ ساعت رانندگی دارد."}]}, ensure_ascii=False)
+    assert await personalization.write_explanation(payload) is None
+    fake.output = json.dumps({"intro": "این بار طبیعت را انتخاب کردم.",
+                              "plans": [{"index": 1, "why": "جنگل الف برای هیجان‌طلبی عالی است."}]}, ensure_ascii=False)
+    assert await personalization.write_explanation(payload) is None
+    fake.output = json.dumps({"intro": "این بار مسیر طبیعت‌گردی پیشنهاد می‌کنم.",
+                              "plans": [{"index": 1, "why": "جنگل الف جاذبهٔ طبیعی مسیر است."}]}, ensure_ascii=False)
+    assert (await personalization.write_explanation(payload))["plans"][0]["why"].startswith("جنگل الف")

@@ -148,6 +148,32 @@ async def test_returning_user_greeting_mentions_last_request_not_permanent_habit
 
 
 @pytest.mark.asyncio
+async def test_greeting_still_uses_prior_features_when_preferences_or_history_fail(monkeypatch):
+    chat = importlib.import_module("src.api.routes.chat")
+
+    class Graph:
+        def __init__(self, *args):
+            pass
+
+        async def get_recent_session_features(self, *args):
+            return {"moods": ["ماجراجویانه"], "companions": ["همسر"]}
+
+        async def get_user_history(self, *args, **kwargs):
+            raise RuntimeError("history read unavailable")
+
+    async def broken_preferences(*args):
+        raise RuntimeError("preference read unavailable")
+
+    memory = SimpleNamespace(_client=SimpleNamespace(_ensure_connected=lambda: object()),
+                             long_term=SimpleNamespace(get_preferences_for=broken_preferences))
+    monkeypatch.setattr(chat, "get_memory_client", lambda: memory)
+    monkeypatch.setattr(chat, "TripGraphRepository", Graph)
+    result = await chat.start_session(Response(), browser_user_id="user-a")
+    assert "خوش برگشتی" in result.greeting and "ماجراجویانه" in result.greeting
+    assert "همسر" in result.greeting and result.user_id == "user-a"
+
+
+@pytest.mark.asyncio
 async def test_first_time_user_gets_new_identity_and_no_claimed_memories(monkeypatch):
     chat = importlib.import_module("src.api.routes.chat")
     monkeypatch.setattr(chat, "get_memory_client", lambda: None)

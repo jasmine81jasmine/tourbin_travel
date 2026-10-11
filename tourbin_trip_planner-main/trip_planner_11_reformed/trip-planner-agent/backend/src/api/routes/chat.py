@@ -19,7 +19,7 @@ from src.agent.feasibility import ground_route_text, screen_short_trip
 from src.agent.goals import (TravelGoal, insights_from_previous_goal, recall_recommendations,
                              remember_recommended_routes, with_prior_insights)
 from src.agent.memory_summary import summarize_user_memory
-from src.agent.personalization import explain_selected_plans
+from src.agent.personalization import explain_selected_plans, write_explanation
 from src.agent.tools import build_trip_map
 from src.agent.turns import TurnDecision, apply_goal_updates, understand_turn
 from src.api.schemas import ChatRequest, ChatResponse, Itinerary, SessionResponse
@@ -94,6 +94,65 @@ def _is_memory_based_plan(message: str) -> bool:
             and _has_plan_request(text))
 
 
+def _asks_why_plan(message: str) -> bool:
+    text = " ".join(message.replace("‌", " ").split())
+    return bool(re.search(r"چرا\s+(?:این|اون|همین)\s+(?:برنامه|برنامه\s*ها|مقصد|مسیر)|"
+                          r"(?:دلیل|علت)\s+(?:انتخاب|پیشنهاد)\s+(?:این|اون)", text))
+
+
+def _asks_vehicle(message: str) -> bool:
+    text = message.replace("‌", " ")
+    return (not _has_plan_request(text)
+            and bool(re.search(r"(?:با\s+)?چه\s+(?:ماشین|خودرو|وسیله)|"
+                               r"چه\s+نوع\s+(?:ماشین|خودرو)|سواری\s+یا\s+آفرود", text)))
+
+
+async def _save_direct_exchange(memory_client, session_id: str, user_id: str,
+                                question: str, reply: str) -> None:
+    if memory_client is None:
+        return
+    try:
+        for role, content in (("user", question), ("assistant", reply)):
+            await memory_client.short_term.add_message(
+                session_id=session_id, role=role, content=content,
+                metadata={"user_id": user_id}, user_identifier=user_id,
+                extract_entities=False, extract_relations=False,
+                generate_embedding=False, extraction_mode="skip",
+            )
+    except Exception:
+        logger.warning("Could not store direct travel answer", exc_info=True)
+
+
+async def _answer_vehicle_question(message: str, goal: TravelGoal | None, graph) -> str | None:
+    if graph is None or not _asks_vehicle(message):
+        return None
+    names = goal.destination_names if goal else []
+    if not names and goal and len(goal.last_proposed_routes) == 1 and len(goal.last_proposed_routes[0]) == 1:
+        names = goal.last_proposed_routes[0]
+    try:
+        mentioned = await graph.get_destination_details(message)
+        if mentioned and _explicitly_mentions_destination(message, str(mentioned.get("name", ""))):
+            details = mentioned
+            names = [mentioned["name"]]
+        else:
+            details = await graph.get_destination_details(names[-1]) if names else None
+    except Exception:
+        logger.warning("Could not look up chosen destination vehicle", exc_info=True)
+        return None
+    if not details or (names and details.get("name") != names[-1]):
+        return None
+    name = details.get("name", "این مقصد")
+    vehicles = [v for v in (details.get("vehicles") or []) if isinstance(v, str)]
+    if vehicles:
+        phrase = " و ".join(vehicles[:2])
+        reply = f"برای {name}، در اطلاعات دسترسیِ مقصد {phrase} ذکر شده است. "
+    else:
+        reply = f"برای {name} نوع خودروی مناسب در اطلاعات مقصد مشخص نشده است. "
+    if details.get("physical_readiness"):
+        reply += f"بازدید هم آمادگی بدنی {details['physical_readiness']} می‌خواهد؛ مسیر پیاده را با مسیر خودرو اشتباه نگیریم. "
+    return reply + "وضعیت بخش پایانی راه را نزدیک روز حرکت بررسی کن."
+
+
 def _explicitly_mentions_destination(message: str, destination_name: str) -> bool:
     message_keys = TripGraphRepository._destination_lookup_keys(message)
     destination_keys = TripGraphRepository._destination_lookup_keys(destination_name)
@@ -101,6 +160,24 @@ def _explicitly_mentions_destination(message: str, destination_name: str) -> boo
         return False
     padded_message = f" {message_keys[0]} "
     return any(f" {key} " in padded_message for key in destination_keys)
+
+
+async def _selected_destination_name(message: str, graph, known_names: set[str]) -> str | None:
+    """Resolve an affirmative choice, including Persian spelling variations."""
+    text = message.replace("‌", " ")
+    if not re.search(r"(?:می\s*خوام|می\s*خواهم)\s+(?:برم|بریم|به|همون|اون)|انتخاب\s*کردم", text):
+        return None
+    for name in sorted(known_names, key=len, reverse=True):
+        if _explicitly_mentions_destination(message, name):
+            return name
+    if graph is not None:
+        try:
+            detail = await graph.get_destination_details(message)
+            if detail and _explicitly_mentions_destination(message, str(detail.get("name", ""))):
+                return detail["name"]
+        except Exception:
+            logger.warning("Could not resolve selected destination", exc_info=True)
+    return None
 
 
 def _previous_goal_concept(state_json: str) -> str | None:
@@ -168,43 +245,50 @@ async def start_session(
     if memory_client is None:
         return SessionResponse(greeting=greeting, session_id=session_id, user_id=user_id)
 
+    preferences = []
+    recent_features = {}
+    history = {}
     try:
         preferences = await memory_client.long_term.get_preferences_for(user_id)
+    except Exception:
+        logger.warning("Could not load durable preferences for greeting", exc_info=True)
+    try:
         driver = memory_client._client._ensure_connected()  # type: ignore[attr-defined]
         graph = TripGraphRepository(driver)
-        history = await graph.get_user_history(
-            user_id,
-            exclude_session_id=session_id,
-        )
         try:
             recent_features = await graph.get_recent_session_features(user_id, session_id)
         except Exception:
-            logger.warning("Could not load previous trip features for greeting", exc_info=True)
-            recent_features = {}
-        remembered: list[str] = []
-        if preferences:
-            remembered.append(f"یادم هست که {preferences[0].preference}")
-        concept = _previous_feature_concept(recent_features)
-        if concept:
-            remembered.append(f"آخرین بار برای سفری با حال‌وهوای {concept} برنامه می‌خواستی")
-        elif history.get("recent_goals"):
-            concept = _previous_goal_concept(history["recent_goals"][0])
-            if concept:
-                remembered.append(f"یادم هست آخرین بار درباره {concept} برنامه‌ریزی می‌کردیم")
-        elif history.get("recent_topics"):
-            remembered.append("یادم هست قبلاً درباره برنامه سفرت صحبت کرده بودیم")
-        elif history.get("trips"):
-            destinations = history["trips"][0].get("destinations") or []
-            if destinations:
-                remembered.append(f"برنامه قبلی‌مون برای {destinations[0]} بود")
-        if remembered:
-            greeting = (
-                "سلام، خوش برگشتی! من توربینم 🌿 "
-                + "؛ ".join(remembered[:2])
-                + ". دوست داری همان برنامه را ادامه بدهیم یا سفر تازه‌ای بسازیم؟"
-            )
+            logger.warning("Could not load prior trip features for greeting", exc_info=True)
+        try:
+            history = await graph.get_user_history(user_id, exclude_session_id=session_id)
+        except Exception:
+            logger.warning("Could not load trip history for greeting", exc_info=True)
     except Exception:
-        logger.warning("Could not personalize session greeting", exc_info=True)
+        logger.warning("Could not initialize trip graph for greeting", exc_info=True)
+    if not recent_features and history.get("recent_goals"):
+        recent_features = insights_from_previous_goal(history["recent_goals"][0])
+    remembered: list[str] = []
+    if preferences:
+        remembered.append(f"یادم هست که {preferences[0].preference}")
+    concept = _previous_feature_concept(recent_features)
+    if concept:
+        remembered.append(f"آخرین بار برای سفری با حال‌وهوای {concept} برنامه می‌خواستی")
+    elif history.get("recent_goals"):
+        concept = _previous_goal_concept(history["recent_goals"][0])
+        if concept:
+            remembered.append(f"یادم هست آخرین بار درباره {concept} برنامه‌ریزی می‌کردیم")
+    elif history.get("recent_topics"):
+        remembered.append("یادم هست قبلاً درباره برنامه سفرت صحبت کرده بودیم")
+    elif history.get("trips"):
+        destinations = history["trips"][0].get("destinations") or []
+        if destinations:
+            remembered.append(f"برنامه قبلی‌مون برای {destinations[0]} بود")
+    if remembered:
+        greeting = (
+            "سلام، خوش برگشتی! من توربینم 🌿 "
+            + "؛ ".join(remembered[:2])
+            + ". دوست داری همان برنامه را ادامه بدهیم یا سفر تازه‌ای بسازیم؟"
+        )
 
     return SessionResponse(greeting=greeting, session_id=session_id, user_id=user_id)
 
@@ -291,21 +375,31 @@ async def chat(
 
     if _is_memory_question(request.message):
         reply = await summarize_user_memory(memory_client, graph_repo, user_id, session_id, current_goal)
-        if memory_client is not None:
-            try:
-                for role, content in (("user", request.message), ("assistant", reply)):
-                    await memory_client.short_term.add_message(
-                        session_id=session_id, role=role, content=content,
-                        metadata={"user_id": user_id}, user_identifier=user_id,
-                        extract_entities=False, extract_relations=False,
-                        generate_embedding=False, extraction_mode="skip",
-                    )
-            except Exception:
-                logger.warning("Could not remember memory question", exc_info=True)
+        await _save_direct_exchange(memory_client, session_id, user_id, request.message, reply)
         return ChatResponse(reply=reply, session_id=session_id, user_id=user_id)
 
+    vehicle_reply = await _answer_vehicle_question(request.message, current_goal, graph_repo)
+    if vehicle_reply:
+        await _save_direct_exchange(memory_client, session_id, user_id, request.message, vehicle_reply)
+        return ChatResponse(reply=vehicle_reply, session_id=session_id, user_id=user_id)
+
+    if (_asks_why_plan(request.message) and current_goal is not None and graph_repo is not None):
+        names_by_route = current_goal.last_proposed_routes or current_goal.recommended_routes[-2:]
+        if names_by_route:
+            routes = [{"stops": [{"name": name} for name in names]} for names in names_by_route]
+            reply = await explain_selected_plans(current_goal, routes, graph_repo, memory_client, user_id,
+                                                 writer=write_explanation)
+            if not reply:
+                reply = "برای این مسیرها هنوز جزئیات کافی ندارم که دلیلی دقیق و قابل‌اتکا بگم."
+            await _save_direct_exchange(memory_client, session_id, user_id, request.message, reply)
+            return ChatResponse(reply=reply, session_id=session_id, user_id=user_id)
+
+    known_names = {name for route in (current_goal.recommended_routes if current_goal else []) for name in route}
+    chosen_name = await _selected_destination_name(request.message, graph_repo, known_names)
     decision = (TurnDecision("chat") if _is_only_greeting(request.message)
                 else await understand_turn(request.message, current_goal, recent_transcript))
+    if chosen_name:
+        decision = TurnDecision("plan", {**decision.updates, "destination_names": [chosen_name]})
     travel_goal = current_goal
     if decision.action == "plan":
         try:
@@ -497,14 +591,17 @@ async def chat(
                     shown_names = names
                 explanation_routes = proposed or [{"stops": [{"name": name}]} for name in names]
                 explanation = await explain_selected_plans(
-                    travel_goal, explanation_routes, graph_repo, memory_client, user_id
+                    travel_goal, explanation_routes, graph_repo, memory_client, user_id,
+                    writer=write_explanation,
                 )
                 if explanation:
                     reply_text = explanation + "\n\n" + reply_text
             except Exception:
                 logger.warning("Could not explain plan personalization", exc_info=True)
-            if proposed:
-                travel_goal = remember_recommended_routes(travel_goal, proposed)
+            if proposed or shown_names:
+                travel_goal = remember_recommended_routes(
+                    travel_goal, proposed or [{"stops": [{"name": name}]} for name in shown_names]
+                )
                 if graph_repo is not None:
                     try:
                         await graph_repo.upsert_travel_goal(session_id, user_id, travel_goal.model_dump())

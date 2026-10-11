@@ -60,6 +60,19 @@ async def test_revised_constraints_preserve_unchanged_session_preferences(monkey
     assert updated.accommodation == ["کمپ"]
 
 
+@pytest.mark.asyncio
+async def test_vehicle_or_reason_question_never_generates_another_plan(monkeypatch):
+    class ForbiddenAgent:
+        async def run(self, prompt):
+            raise AssertionError("Factual follow-up must not depend on plan classifier")
+
+    monkeypatch.setattr(turns, "_turn_agent", lambda: ForbiddenAgent())
+    goal = TravelGoal(duration="سه روز", recommended_routes=[["آبشار برجی کلا"]])
+    assert (await turns.understand_turn("با چه ماشینی برم اونجا؟", goal, "برنامهٔ آبشار برجی کلا")).action == "answer"
+    assert (await turns.understand_turn("چرا این برنامه ها رو بهم دادی؟", goal, "برنامهٔ آبشار برجی کلا")).action == "answer"
+    assert (await turns.understand_turn("در مورد آبشار برجی کلا بیشتر بگو", goal, "برنامهٔ آبشار برجی کلا")).action == "answer"
+
+
 def test_classifier_failure_favors_answering_questions():
     assert turns._fallback_action("کدوم گزینه خلوت‌تره؟", True) == "answer"
     assert turns._fallback_action("گلابدره آب و هواش چطوره؟", True) == "answer"
@@ -108,6 +121,31 @@ async def test_young_group_is_friends_not_children():
     assert goal.duration == "آخر هفته"
     assert goal.accommodation == ["کمپ"]
     assert "دوستان" in goal.companions and "کودک" not in goal.companions
+
+
+@pytest.mark.asyncio
+async def test_choice_of_previously_proposed_waterfall_resolves_persian_spelling(monkeypatch):
+    route = importlib.import_module("src.api.routes.chat")
+    assert route._explicitly_mentions_destination("میخوام برم ابشار برجی کلا", "آبشار برجی کلا")
+
+    class Graph:
+        async def get_destination_details(self, name):
+            raise AssertionError("Already offered names should resolve without another fuzzy graph lookup")
+
+    assert (await route._selected_destination_name("میخوام برم ابشار برجی کلا", Graph(),
+                                                    {"آبشار برجی کلا", "تنگه دار"})) == "آبشار برجی کلا"
+
+    from src.memory.graph import TripGraphRepository
+
+    repo = TripGraphRepository(None)
+
+    async def read(query, **params):
+        assert "'آ', 'ا'" in query
+        assert "ابشار برجی کلا" in params["lookup_keys"][0]
+        return [{"destination": {"name": "آبشار برجی کلا"}}]
+
+    repo._read = read
+    assert (await repo.get_destination_details("ابشار برجی کلا"))["name"] == "آبشار برجی کلا"
 
 
 @pytest.mark.asyncio
@@ -170,13 +208,13 @@ async def test_chat_exposes_independent_map_routes_for_alternative_plans(monkeyp
     monkeypatch.setattr(route, "update_travel_goal", goal)
     monkeypatch.setattr(route, "screen_short_trip", screen)
 
-    async def explanation(*args):
-        return "### چرا این مقصدها برای تو؟\n- **مقصد 1:** چون طبیعت دوست داری."
+    async def explanation(*args, **kwargs):
+        return "### چرا این سفر را پیشنهاد کردم؟\n\n**مسیر 1:** مقصد 1 با درخواست این سفر هماهنگ است."
 
     monkeypatch.setattr(route, "explain_selected_plans", explanation)
 
     response = await route.chat(ChatRequest(message="برای یک روز دو مقصد پیشنهاد بده"), Response(), browser_user_id=None)
-    assert response.reply.startswith("### چرا این مقصدها برای تو؟")
+    assert response.reply.startswith("### چرا این سفر را پیشنهاد کردم؟")
     assert "#### گزینهٔ 2: مقصد 2" in response.reply
     assert response.itinerary is None
     assert [plan.stops[0].name for plan in response.itineraries] == ["مقصد 1", "مقصد 2"]
@@ -267,12 +305,103 @@ async def test_chat_explains_named_alternatives_without_map_results(monkeypatch)
     monkeypatch.setattr(route, "understand_turn", plan)
     monkeypatch.setattr(route, "update_travel_goal", goal)
     monkeypatch.setattr(route, "screen_short_trip", no_screen)
+    async def no_writer(payload):
+        return None
+    monkeypatch.setattr(route, "write_explanation", no_writer)
 
     response = await route.chat(ChatRequest(message="میخوایم آخر هفته با بچه‌ها بریم کمپ"),
                                 Response(), browser_user_id=None)
-    assert response.reply.startswith("### چرا این مقصدها برای تو؟")
-    assert "**آبشار لاتون:**" in response.reply and "**دریاچه نئور:**" in response.reply
+    assert response.reply.startswith("### چرا این سفر را پیشنهاد کردم؟")
+    assert "**مسیر 1:** آبشار لاتون" in response.reply
+    assert "**مسیر 2:** دریاچه نئور" in response.reply
     assert response.itinerary is None and response.itineraries == []
     assert Graph.synced_calls == [(response.user_id, response.session_id)]
     assert Graph.shown_calls == [(response.user_id, response.session_id,
                                   ["آبشار لاتون", "دریاچه نئور"])]
+
+
+@pytest.mark.asyncio
+async def test_why_these_routes_answers_from_last_actual_plans_not_generic_model(monkeypatch):
+    route = importlib.import_module("src.api.routes.chat")
+    goal = TravelGoal(duration="سه روز", prior_insights={"moods": ["ماجراجویانه"]},
+                      last_proposed_routes=[["آبشار الف", "دریاچه ب"], ["جنگل ج"]])
+
+    class Graph:
+        def __init__(self, *args):
+            pass
+
+        async def get_travel_goal(self, *args):
+            return goal.model_dump()
+
+        async def get_destination_details(self, name):
+            return {"name": name, "categories": ["کوهنوردی"],
+                    "description": f"طبیعت و مسیر بازدید در {name}."}
+
+        async def get_user_history(self, user_id):
+            return {"liked": []}
+
+    async def preferences(*args):
+        return []
+
+    async def message(**kwargs):
+        return SimpleNamespace(id="m1")
+
+    async def conversation(*args, **kwargs):
+        return SimpleNamespace(messages=[])
+
+    async def writer(payload):
+        assert [[s["name"] for s in plan["stops"]] for plan in payload["plans"]] == goal.last_proposed_routes
+        return {"intro": "از درخواست ماجراجویانهٔ قبلی‌ات یادم هست.",
+                "plans": [{"index": 1, "why": "آبشار الف و دریاچه ب را برای دیدن طبیعت در یک مسیر گذاشتم."},
+                          {"index": 2, "why": "جنگل ج مسیر دیگری برای همان سفر سه‌روزه است."}]}
+
+    memory = SimpleNamespace(_client=SimpleNamespace(_ensure_connected=lambda: object()),
+                             short_term=SimpleNamespace(get_conversation=conversation, add_message=message),
+                             long_term=SimpleNamespace(get_preferences_for=preferences))
+    monkeypatch.setattr(route, "get_memory_client", lambda: memory)
+    monkeypatch.setattr(route, "get_embedding_provider", lambda: None)
+    monkeypatch.setattr(route, "TripGraphRepository", Graph)
+    monkeypatch.setattr(route, "get_trip_planner_agent", lambda: pytest.fail("Do not ask model to invent plan reasons"))
+    monkeypatch.setattr(route, "write_explanation", writer)
+
+    response = await route.chat(ChatRequest(message="چرا این برنامه ها رو بهم دادی؟", session_id="s1"),
+                                Response(), browser_user_id="user-a")
+    assert "آبشار الف و دریاچه ب" in response.reply
+    assert "جنگل ج" in response.reply and "درخواست ماجراجویانه" in response.reply
+    assert response.itinerary is None
+
+
+@pytest.mark.asyncio
+async def test_vehicle_question_uses_selected_place_without_new_itinerary(monkeypatch):
+    route = importlib.import_module("src.api.routes.chat")
+
+    class Graph:
+        def __init__(self, *args):
+            pass
+
+        async def get_travel_goal(self, *args):
+            return TravelGoal(duration="سه روز", destination_names=["آبشار برجی کلا"]).model_dump()
+
+        async def get_destination_details(self, name):
+            if name == "آبشار برجی کلا":
+                return {"name": name, "vehicles": ["سواری", "آفرود"], "physical_readiness": "متوسط"}
+            return None
+
+    async def conversation(*args, **kwargs):
+        return SimpleNamespace(messages=[])
+
+    async def add_message(*args, **kwargs):
+        return None
+
+    memory = SimpleNamespace(_client=SimpleNamespace(_ensure_connected=lambda: object()),
+                             short_term=SimpleNamespace(get_conversation=conversation, add_message=add_message))
+    monkeypatch.setattr(route, "get_memory_client", lambda: memory)
+    monkeypatch.setattr(route, "TripGraphRepository", Graph)
+    monkeypatch.setattr(route, "get_embedding_provider", lambda: None)
+    monkeypatch.setattr(route, "get_trip_planner_agent", lambda: pytest.fail("No new trip should be generated"))
+
+    response = await route.chat(ChatRequest(message="با چه ماشینی برم اونجا؟", session_id="s1"),
+                                Response(), browser_user_id="user-a")
+    assert "آبشار برجی کلا" in response.reply and "سواری" in response.reply
+    assert "آمادگی بدنی متوسط" in response.reply
+    assert response.itinerary is None and response.itineraries == []

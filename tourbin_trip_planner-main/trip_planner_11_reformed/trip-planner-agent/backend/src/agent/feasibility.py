@@ -17,6 +17,7 @@ from src.agent.goals import TravelGoal
 from src.agent.geo import haversine_km, point_in_any_polygon
 from src.agent.regions import expand_location
 from src.agent.tools import DEFAULT_ORIGIN
+from src.memory.graph import TripGraphRepository
 
 
 _DAYS = {"یک": 1, "دو": 2, "سه": 3, "چهار": 4, "پنج": 5, "1": 1, "2": 2, "3": 3, "۱": 1, "۲": 2, "۳": 3}
@@ -204,6 +205,12 @@ def _wants_one_place(goal: TravelGoal) -> bool:
     text = goal.objective.rsplit("اصلاح جدید:", 1)[-1].replace("‌", " ")
     if re.search(r"چند\s*(?:توقف|مقصد)|(?:دو|سه|[۲۳23])\s*(?:توقف|مقصد)", text):
         return False
+    request_keys = TripGraphRepository._destination_lookup_keys(text)
+    if request_keys and any(
+        any(f" {key} " in f" {request_keys[0]} " for key in TripGraphRepository._destination_lookup_keys(name))
+        for name in goal.destination_names
+    ):
+        return True
     return bool(re.search(r"(?:یه|یک)\s+(?:جا(?:یی|ی)?|مقصد)|(?:فقط|تنها)\s+(?:یه|یک)"
                           r"|چند\s*(?:گزینه|پیشنهاد)|جای جدید|گزینه\s*ها", text))
 
@@ -467,6 +474,8 @@ async def _render_multiday_plans(
             lines.append(cards[stop["name"]])
             lines.append(f"- **رانندگی از توقف قبلی:** {stop['leg_distance_km_from_previous']} کیلومتر، "
                          f"{stop['leg_duration_hours_from_previous']} ساعت")
+        if len(plan["stops"]) == 1 and days >= 3:
+            lines.append("**📅 روز 2 — وقت آزاد برای گشت‌وگذار و استراحت در همان مقصد**")
         if days > last_day:
             lines.append(f"**📅 روز {days} — بازگشت**")
         if "کمپ" in goal.objective or "چادر" in goal.objective:
@@ -511,6 +520,31 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
         origin = (location["latitude"], location["longitude"]) if location else None
     else:
         origin = None
+
+    # A named place is the user's decision, not another candidate search.
+    # Never silently replace it with unrelated multi-day itineraries.
+    if goal.destination_names and _wants_one_place(goal):
+        selected = goal.destination_names[-1]
+        row = next((item for item in candidates if item.get("name") == selected), None)
+        if graph is not None:
+            try:
+                detail = await graph.get_destination_details(selected)
+                if detail and detail.get("name") == selected:
+                    row = {**(row or {}), **{key: value for key, value in detail.items()
+                                            if value is not None or key not in {"latitude", "longitude"}}}
+            except Exception:
+                pass
+        if row is None or row.get("latitude") is None or row.get("longitude") is None:
+            return (f"برای {selected} هنوز اطلاعات مکانی قابل تأیید ندارم؛ "
+                    "بدون آن نمی‌خوام مسیر دیگری را به جای مقصد انتخابی‌ات جا بزنم.", None)
+        if origin is None or maps is None or not maps.enabled:
+            return (f"مقصدی که انتخاب کردی {selected} است. برای زمان‌بندی دقیقش به مسیر جاده‌ای قابل تأیید نیاز دارم؛ "
+                    "فعلاً نمی‌خوام یک سفر متفاوت به جایش پیشنهاد کنم.", None)
+        plan = await _route_plan(maps, origin, origin_name, [row], budget)
+        if not plan:
+            return (f"برای {selected} مسیر رفت‌وبرگشتی که با سفر {goal.duration} و فرصت بازدید و استراحت سازگار باشد "
+                    "تأیید نشد؛ بدون تأیید مسیر، مقصد دیگری را جای انتخاب تو نمی‌گذارم.", None)
+        return await _render_multiday_plans(goal, [plan], [row], graph, description_formatter, map_itineraries)
 
     if _trip_days(goal) >= 2 and not _wants_one_place(goal) and origin is not None and maps and maps.enabled:
         plans = []

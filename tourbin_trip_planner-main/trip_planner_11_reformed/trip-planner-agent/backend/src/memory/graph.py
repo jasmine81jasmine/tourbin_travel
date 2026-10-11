@@ -49,7 +49,8 @@ class TripGraphRepository:
     def _destination_lookup_keys(value: str) -> list[str]:
         """Build Persian-normalized aliases for a destination name."""
         normalized = unicodedata.normalize("NFKC", value).translate(
-            str.maketrans({"ي": "ی", "ى": "ی", "ك": "ک", "ـ": "", "\u200c": " "})
+            str.maketrans({"ي": "ی", "ى": "ی", "ك": "ک", "آ": "ا", "أ": "ا", "إ": "ا",
+                           "ـ": "", "\u200c": " "})
         )
         normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
         normalized = re.sub(r"[^\w\s]", " ", normalized.lower())
@@ -466,7 +467,7 @@ class TripGraphRepository:
         MATCH (d:Destination)
         WITH d, [raw IN [d.name, d.name_fa, d.alt_name_fa, d.official_name_fa,
                          d.old_name_fa] WHERE raw IS NOT NULL |
-            replace(replace(replace(replace(toLower(trim(raw)), 'ي', 'ی'), 'ى', 'ی'), 'ك', 'ک'), '‌', ' ')
+            replace(replace(replace(replace(replace(toLower(trim(raw)), 'ي', 'ی'), 'ى', 'ی'), 'ك', 'ک'), 'آ', 'ا'), '‌', ' ')
         ] AS normalized_names
         WHERE d.id = $key OR any(name IN normalized_names WHERE
             any(lookup IN $lookup_keys WHERE name = lookup OR name CONTAINS lookup OR lookup CONTAINS name))
@@ -547,7 +548,7 @@ class TripGraphRepository:
         MATCH (d:Destination)
         WITH d, [raw IN [d.name, d.name_fa, d.alt_name_fa, d.official_name_fa,
                          d.old_name_fa] WHERE raw IS NOT NULL |
-            replace(replace(replace(replace(toLower(trim(raw)), 'ي', 'ی'), 'ى', 'ی'), 'ك', 'ک'), '‌', ' ')
+            replace(replace(replace(replace(replace(toLower(trim(raw)), 'ي', 'ی'), 'ى', 'ی'), 'ك', 'ک'), 'آ', 'ا'), '‌', ' ')
         ] AS normalized_names
         WHERE d.id = $key OR any(name IN normalized_names WHERE
             any(lookup IN $lookup_keys WHERE name = lookup OR name CONTAINS lookup OR lookup CONTAINS name))

@@ -17,6 +17,11 @@ def test_card_rejects_unverified_driving_figures():
     )
 
 
+def test_generic_facility_flag_is_not_shown_as_an_amenity():
+    card = formatting._fallback_card({"categories": ["طبیعت"], "facilities_level": "دارد"})
+    assert "**ویژگی‌ها:**" in card and "**امکانات:** دارد" not in card
+
+
 @pytest.mark.asyncio
 async def test_model_converts_graph_article_and_facilities_into_short_card(monkeypatch):
     article = "مقالهٔ مفصل و تکراری دربارهٔ درکه. " * 40

@@ -36,6 +36,8 @@ class TravelGoal(BaseModel):
     # Recently proposed routes in THIS session, not places the user visited.
     # Enables new suggestions without persisting a false visited preference.
     recommended_routes: list[list[str]] = Field(default_factory=list)
+    # The alternatives shown in the last planning reply, for "why these?"
+    last_proposed_routes: list[list[str]] = Field(default_factory=list)
     semantic_query: str = ""
     status: Literal["collecting", "planning", "proposed", "confirmed"] = "collecting"
     revision: int = 0
@@ -89,7 +91,10 @@ def remember_recommended_routes(goal: TravelGoal, routes: list[dict]) -> TravelG
             continue
         history.append(names)
         seen.add(key)
-    return goal.model_copy(update={"recommended_routes": history[-16:]})
+    latest = [[stop["name"] for stop in route.get("stops", []) if stop.get("name")]
+              for route in routes]
+    return goal.model_copy(update={"recommended_routes": history[-16:],
+                                   "last_proposed_routes": [names for names in latest if names][:4]})
 
 
 def recall_recommendations(goal: TravelGoal, transcript: str) -> TravelGoal:

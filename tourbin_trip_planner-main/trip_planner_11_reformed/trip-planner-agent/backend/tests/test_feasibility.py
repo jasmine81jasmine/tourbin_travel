@@ -26,6 +26,57 @@ def test_new_multiday_request_overrides_old_single_place_request():
     assert _wants_one_place(TravelGoal(objective="همهٔ جاهای قبلی را رفتم؛ اصلاح جدید: جای جدید معرفی کن"))
 
 
+def test_named_destination_selects_one_place_even_when_trip_is_three_days():
+    assert _wants_one_place(TravelGoal(
+        objective="یه سفر سه روزه پیشنهاد بده؛ اصلاح جدید: میخوام برم ابشار برجی کلا",
+        destination_names=["آبشار برجی کلا"], duration="سه روز",
+    ))
+
+
+@pytest.mark.asyncio
+async def test_selected_waterfall_is_not_replaced_by_unrelated_multiday_plans():
+    chosen = {"id": "waterfall", "name": "آبشار برجی کلا", "latitude": 35.9, "longitude": 51.5,
+              "categories": ["طبیعت"], "description": "مسیر بازدید از آبشار و طبیعت اطراف."}
+
+    class Graph:
+        async def get_destination_details(self, name):
+            return chosen
+
+    class Maps(_Maps):
+        async def route(self, origin, destination):
+            return {"distance_km": 42, "duration_hours": 1.1}
+
+    goal = TravelGoal(duration="سه روز", destination_names=["آبشار برجی کلا"],
+                      objective="با همسرم سه روزه برنامه بده؛ اصلاح جدید: میخوام برم ابشار برجی کلا")
+    map_options = []
+    reply, route = await screen_short_trip(goal, Maps(), [], "یه برنامهٔ دیگر بساز", graph=Graph(),
+                                           map_itineraries=map_options)
+    assert "آبشار برجی کلا" in reply and "روز 2" in reply
+    assert "سجیران" not in reply and "برنامهٔ 2" not in reply
+    assert [s["name"] for s in route["stops"]] == ["آبشار برجی کلا"]
+    assert len(map_options) == 1
+
+
+@pytest.mark.asyncio
+async def test_selected_place_keeps_map_coordinates_when_graph_detail_lacks_them():
+    class Graph:
+        async def get_destination_details(self, name):
+            return {"name": name, "latitude": None, "longitude": None, "categories": ["طبیعت"]}
+
+    class Maps(_Maps):
+        async def route(self, origin, destination):
+            return {"distance_km": 35, "duration_hours": 1.0}
+
+    route = Itinerary.model_validate({
+        "origin": {"name": "تهران", "latitude": 35.6892, "longitude": 51.389},
+        "stops": [{"order": 1, "name": "آبشار برجی کلا", "latitude": 35.9, "longitude": 51.5}],
+    })
+    goal = TravelGoal(duration="سه روز", destination_names=["آبشار برجی کلا"],
+                      objective="میخوام برم ابشار برجی کلا")
+    reply, selected = await screen_short_trip(goal, Maps(), [], "برنامهٔ آبشار برجی کلا", route, graph=Graph())
+    assert selected["stops"][0]["name"] == "آبشار برجی کلا" and "روز 2" in reply
+
+
 def test_two_and_three_day_driving_budgets_are_per_trip_not_per_day():
     assert driving_budget(TravelGoal(duration="دو روز")) == 12
     assert driving_budget(TravelGoal(duration="سه روز")) == 18

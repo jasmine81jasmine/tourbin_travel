@@ -54,6 +54,18 @@ def _fallback_action(message: str, has_history: bool) -> str:
     return "answer" if has_history else "plan"
 
 
+def _is_factual_followup(message: str, has_context: bool) -> bool:
+    text = message.replace("‌", " ")
+    if not has_context or re.search(r"برنامه\s*(?:بده|بریز|بساز|بچین)|برنامه\s+جدید", text):
+        return False
+    return bool(re.search(r"چرا\s+(?:این|اون|همین)\s+برنامه|چرا\s+این\s+(?:جا|مقصد)|"
+                          r"(?:با\s+)?چه\s+(?:ماشین|خودرو|وسیله)|ماشین\s+مناسب|"
+                          r"(?:درباره|در مورد|راجع به)\s+.{0,25}(?:اطلاعات|بگو)|"
+                          r"بیشتر\s+(?:بگو|توضیح\s+بده)|جزئیات\s+.{0,25}(?:بگو|چیه)|"
+                          r"(?:جاده|دسترسی|شرایط|امکانات|پیاده\s*روی|هوا|کمپ).{0,25}(?:چطوره|چیه|چیست|دار[هند]|میشه)",
+                          text))
+
+
 @lru_cache
 def _turn_agent() -> Agent:
     return Agent(
@@ -81,6 +93,7 @@ def _turn_agent() -> Agent:
             "A question about which option is quieter is NOT a new mood preference. "
             "If the user clearly selects a destination, update destination_names; if they "
             "ask about a destination without selecting it, do not overwrite the chosen plan. "
+            "'میخوام برم آبشار برجی کلا' selects that single place; never plan other destinations instead. "
             "Do not invent places, values or user preferences."
         ),
     )
@@ -88,6 +101,8 @@ def _turn_agent() -> Agent:
 
 async def understand_turn(message: str, goal: TravelGoal | None, transcript: str) -> TurnDecision:
     """Use the LLM and short-term history; stay useful if that extra call fails."""
+    if _is_factual_followup(message, goal is not None or bool(transcript)):
+        return TurnDecision("answer")
     fallback = TurnDecision(_fallback_action(message, bool(transcript)))
     payload = {"latest_message": message, "current_goal": goal.model_dump() if goal else None,
                "recent_conversation": transcript[-4500:]}
