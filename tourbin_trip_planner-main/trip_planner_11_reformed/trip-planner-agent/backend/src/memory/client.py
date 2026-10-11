@@ -114,6 +114,14 @@ async def init_memory_client() -> MemoryClient | None:
     try:
         await _memory_client.connect()
         _memory_connected = True
+        # Existing deployments do not re-run etl/constraints.cypher. Create
+        # only the new feature-label constraints at startup, idempotently.
+        try:
+            from src.memory.graph import TripGraphRepository
+
+            await TripGraphRepository(_memory_client._client._ensure_connected()).ensure_feature_constraints()
+        except Exception:
+            logger.warning("Could not ensure session feature indexes", exc_info=True)
         _memory_client.long_term._deduplication = DeduplicationConfig(
             auto_merge_threshold=settings.dedup_auto_merge_threshold,
             flag_threshold=settings.dedup_flag_threshold,

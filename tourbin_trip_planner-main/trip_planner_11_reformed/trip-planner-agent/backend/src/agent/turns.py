@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 _UPDATABLE = {
     "origin", "destination_names", "region", "duration", "travel_dates", "season",
-    "companions", "group_size", "moods", "activities", "transport", "accommodation",
+    "companions", "group_size", "categories", "trip_types", "moods", "activities", "transport", "accommodation",
     "budget", "must_haves", "avoid", "constraints",
 }
 
@@ -68,7 +68,14 @@ def _turn_agent() -> Agent:
             "Use 'chat' for greetings or non-planning small talk. "
             "The current_goal contains the session's earlier constraints; do not drop them. "
             "Put ONLY explicit changes in updates, using field names from current_goal "
-            "such as duration, origin, region, destination_names, companions, moods, avoid. "
+            "such as duration, origin, region, destination_names, companions, moods, avoid, "
+            "categories, and trip_types. Extract stated travel mood (e.g. هیجان/ماجراجویی "
+            "-> moods=['ماجراجویانه']), party (with friends -> companions=['دوستان'], "
+            "با پارتنرم -> companions=['پارتنر']), "
+            "category (طبیعت -> categories=['طبیعت']), or trip type "
+            "(camping -> trip_types=['کمپ']) when clearly requested; don't infer it "
+            "from a destination name or a previous assistant suggestion. "
+            "Likewise extract an explicit season or transport when given. "
             "A question about which option is quieter is NOT a new mood preference. "
             "If the user clearly selects a destination, update destination_names; if they "
             "ask about a destination without selecting it, do not overwrite the chosen plan. "
@@ -93,7 +100,14 @@ async def understand_turn(message: str, goal: TravelGoal | None, transcript: str
         updates = parsed.get("updates") or {}
         if not isinstance(updates, dict):
             updates = {}
-        return TurnDecision(parsed["action"], {key: value for key, value in updates.items() if key in _UPDATABLE})
+        action = parsed["action"]
+        # A request for a plan is not a question about an existing plan,
+        # even when it names a previously suggested destination.
+        if action != "plan" and re.search(r"برنامه\s*(?:بده|بساز|بچین)", message.replace("‌", " ")):
+            action = "plan"
+        if action != "plan" and goal is None and _fallback_action(message, False) == "plan":
+            action = "plan"
+        return TurnDecision(action, {key: value for key, value in updates.items() if key in _UPDATABLE})
     except Exception:
         logger.warning("Could not classify chat turn; using conversational fallback", exc_info=True)
         return fallback

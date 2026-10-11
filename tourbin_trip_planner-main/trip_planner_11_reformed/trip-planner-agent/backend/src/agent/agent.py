@@ -45,6 +45,8 @@ every answer. The person talking to you gives you constraints in
 natural language -- how much time they have, who they're traveling with, the mood
 they want (romantic, family-friendly, adventurous, relaxed), physical readiness,
 season, and so on -- and you turn that into a concrete, personalized plan.
+In Persian, «بچه‌ها جوون/جوونی» can mean a group of young friends, not
+children; never present that group as families with young kids without evidence.
 
 ## How your memory works
 
@@ -64,6 +66,8 @@ disliked or visited recently. When the supplied context contains prior preferenc
 trips, acknowledge one or two relevant memories naturally in your first greeting or
 first planning reply (for example, «یادم هست سفرهای خلوت‌تر رو دوست داری»). Never dump
 the raw memory list, expose IDs, or claim to remember something that is not in context.
+Never guess *when* a preference or prior conversation was shared (for example,
+"last week") unless that timing is explicitly supported by the memory.
 
 For a new plan, briefly say *why* each chosen destination suits this person's
 current request, using actual destination categories, trip types, or verified
@@ -403,6 +407,11 @@ async def update_travel_goal(
     elif "آخر هفته" in normalized_message:
         updated.duration = "آخر هفته"
 
+    for season in ("بهار", "تابستان", "پاییز", "زمستان"):
+        if season in normalized_message and not re.search(rf"(?:بدون|نه)\s+{season}|{season}\s+نه", normalized_message):
+            updated.season = season
+            break
+
     origin_match = re.search(
         r"(?:مبدا|مبدأ)\s*(?:سفر)?\s*(?:شهر\s+)?([آ-ی]{2,20})"
         r"|(?:از|ساکن)\s+(?:شهر\s+)?([آ-ی]{2,20})(?=\s+(?:حرکت|راه|به|می))",
@@ -426,18 +435,36 @@ async def update_travel_goal(
         elif not rejected:
             updated.region = region
 
+    young_friends = bool(re.search(r"بچه\s*ها(?:ی)?\s*(?:جوون|جوان|جوونی)", normalized_message))
     companion_terms = {
         "همسر": ("همسر", "شوهر", "زنم"),
+        "پارتنر": ("پارتنر", "نامزد"),
         "خانواده": ("خانواده",),
         "کودک": ("کودک", "بچه"),
-        "دوستان": ("دوستام", "دوستان"),
+        "دوستان": ("دوستام", "دوستان", "رفقا"),
         "سالمند": ("سالمند", "پدرم", "مادرم"),
     }
     for label, terms in companion_terms.items():
+        if label == "کودک" and young_friends:
+            updated.companions = [item for item in updated.companions if item != "کودک"]
+            continue
         if any(term in normalized_message for term in terms):
             updated.companions = [item for item in updated.companions if item not in terms]
             if label not in updated.companions:
                 updated.companions.append(label)
+    if young_friends and "دوستان" not in updated.companions:
+        updated.companions.append("دوستان")
+
+    for category in ("طبیعت", "تاریخی", "کوهنوردی", "کویر", "زیارتی"):
+        if category not in normalized_message:
+            continue
+        if re.search(rf"(?:بدون|نه|نمیخوام|نمی خواهم)\s+{category}|{category}\s+نه", normalized_message):
+            updated.categories = [item for item in updated.categories if item != category]
+            if category not in updated.avoid:
+                updated.avoid.append(category)
+        elif category not in updated.categories:
+            updated.categories.append(category)
+            updated.avoid = [item for item in updated.avoid if item != category]
 
     for transport in ("آفرود", "ماشین سواری", "خودرو سواری", "ماشین", "خودرو", "قطار", "اتوبوس"):
         if transport in normalized_message:
@@ -450,16 +477,23 @@ async def update_travel_goal(
         "ماجراجویانه": ("ماجراجو", "هیجان"),
         "خلوت": ("خلوت", "دور از شلوغی"),
     }.items():
-        if any(variant in normalized_message for variant in variants):
+        if any(re.search(rf"(?:بدون|نه|نمیخوام|نمی خواهم)\s+{variant}|{variant}\s+نه", normalized_message)
+               for variant in variants):
+            updated.moods = [item for item in updated.moods if item != mood]
+            if mood not in updated.avoid:
+                updated.avoid.append(mood)
+        elif any(variant in normalized_message for variant in variants):
             updated.moods = [item for item in updated.moods if item not in variants]
             if mood not in updated.moods:
                 updated.moods.append(mood)
+            updated.avoid = [item for item in updated.avoid if item != mood]
 
     rejects_camping = "کمپ" in normalized_message and any(
         phrase in normalized_message for phrase in ("بدون", "نمی خوام", "نمیخوام", "نمی خواهم", "نه")
     )
     if rejects_camping:
         updated.accommodation = [item for item in updated.accommodation if "کمپ" not in item]
+        updated.trip_types = [item for item in updated.trip_types if item != "کمپ"]
         if "کمپ" not in updated.avoid:
             updated.avoid.append("کمپ")
     elif "کمپ" in normalized_message and not any(
@@ -468,6 +502,8 @@ async def update_travel_goal(
         updated.avoid = [item for item in updated.avoid if item != "کمپ"]
         if "کمپ" not in updated.accommodation:
             updated.accommodation.append("کمپ")
+        if "کمپ" not in updated.trip_types:
+            updated.trip_types.append("کمپ")
 
     for accommodation in ("هتل", "ویلا", "اقامتگاه بوم گردی", "بوم گردی", "خانه محلی"):
         if accommodation in normalized_message and accommodation not in updated.accommodation:
@@ -484,6 +520,8 @@ async def update_travel_goal(
         + ([updated.region] if updated.region else [])
         + ([updated.duration] if updated.duration else [])
         + updated.companions
+        + updated.categories
+        + updated.trip_types
         + updated.moods
         + updated.activities
         + ([updated.transport] if updated.transport else [])

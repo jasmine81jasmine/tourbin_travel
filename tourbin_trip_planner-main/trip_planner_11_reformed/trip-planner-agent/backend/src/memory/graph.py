@@ -472,6 +472,7 @@ class TripGraphRepository:
         OPTIONAL MATCH (d)-[:LOCATED_IN]->(direct_prov:Province)
         OPTIONAL MATCH (d)-[:HAS_CATEGORY]->(cat:Category)
         OPTIONAL MATCH (d)-[:BEST_SEASON]->(sea:Season)
+        OPTIONAL MATCH (d)-[:SUITABLE_FOR]->(tt:TripType)
         OPTIONAL MATCH (d)-[:NEAR]->(lm:Landmark)
         OPTIONAL MATCH (d)-[:VIA_EXIT]->(ex:ExitRoute)
         OPTIONAL MATCH (d)-[:ACCESSIBLE_BY]->(vehicle:Vehicle)
@@ -486,13 +487,15 @@ class TripGraphRepository:
                     WHERE item.name IS NOT NULL][0..5] AS nearby
         }
         WITH d, normalized_names, city, city_prov, direct_prov,
-             collect(DISTINCT cat.name) AS categories,
-             collect(DISTINCT sea.name) AS seasons,
-             collect(DISTINCT lm.name) AS landmarks,
+              collect(DISTINCT cat.name) AS categories,
+              collect(DISTINCT sea.name) AS seasons,
+              collect(DISTINCT tt.name) AS trip_types,
+              collect(DISTINCT lm.name) AS landmarks,
              collect(DISTINCT ex.name) AS exit_routes,
              collect(DISTINCT vehicle.name) AS vehicles, nearby
         RETURN d {.*, city: city.name, province: coalesce(city_prov.name, direct_prov.name), categories: categories,
-                   seasons: seasons, landmarks: landmarks, exit_routes: exit_routes,
+                    trip_types: trip_types,
+                    seasons: seasons, landmarks: landmarks, exit_routes: exit_routes,
                    vehicles: vehicles,
                    latitude: d.location.latitude, longitude: d.location.longitude,
                    nearby_destinations: nearby} AS destination
@@ -509,6 +512,29 @@ class TripGraphRepository:
             lookup_keys=lookup_keys,
         )
         return rows[0]["destination"] if rows else None
+
+    async def find_destinations_mentioned_in_text(self, text: str, limit: int = 6) -> list[str]:
+        """Recover named curated suggestions even when the agent skipped search tools.
+
+        Names must literally appear in the final reply; this is not a fuzzy
+        destination search or evidence that an unmentioned place was selected.
+        """
+        if not text or limit <= 0:
+            return []
+        excerpt = text[:3000].replace("ي", "ی").replace("ك", "ک").replace("‌", " ")
+        rows = await self._read(
+            """
+            MATCH (d:Destination)
+            WHERE NOT d:OsmFeature AND d.name IS NOT NULL AND size(d.name) >= 4
+              AND $excerpt CONTAINS replace(replace(replace(d.name, 'ي', 'ی'), 'ك', 'ک'), '‌', ' ')
+            RETURN DISTINCT d.name AS name
+            """,
+            excerpt=excerpt,
+        )
+        return [name for name in sorted(
+            {row["name"] for row in rows if row.get("name")},
+            key=lambda name: excerpt.find(name.replace("‌", " ").replace("ي", "ی").replace("ك", "ک")),
+        )[:limit]]
 
     async def find_destinations_near(self, name_or_id: str, radius_km: float = 50) -> list[dict[str, Any]]:
         lookup_keys = self._destination_lookup_keys(name_or_id)
@@ -676,6 +702,77 @@ class TripGraphRepository:
             user_id=user_id,
             state_json=json.dumps(state, ensure_ascii=False),
             revision=state.get("revision", 0),
+        )
+
+    async def sync_session_features(self, user_id: str, session_id: str, state: dict[str, Any]) -> None:
+        """Link this session's explicit requests to shared graph dimensions.
+
+        REQUESTED_FOR_TRIP is deliberately distinct from a durable preference.
+        Replacing the session's edges on revision means removed constraints do
+        not continue to appear as active insights; other sessions are untouched.
+        Existing ontology nodes are matched, never fabricated from model text.
+        """
+        avoid = " ".join(state.get("avoid") or [])
+        styles = {
+            "ماجراجویانه" if any(word in mood for word in ("هیجان", "ماجراجو")) else mood
+            for mood in (state.get("moods") or [])
+            if isinstance(mood, str)
+        } & {"ماجراجویانه", "آرام", "خلوت", "رمانتیک"}
+        styles = {name for name in styles if name not in avoid}
+        companions = set(state.get("companions") or []) & {"دوستان", "همسر", "پارتنر", "خانواده", "کودک", "سالمند"}
+        categories = set(state.get("categories") or []) | (set(state.get("activities") or []) & {"کوهنوردی"})
+        trip_types = set(state.get("trip_types") or [])
+        if "کمپ" in (state.get("accommodation") or []):
+            trip_types.add("کمپ")
+        transport = state.get("transport")
+        vehicles = {"سواری" if transport in ("ماشین", "خودرو", "ماشین سواری", "خودرو سواری") else transport} if transport else set()
+        features = {
+            "Category": sorted(name for name in categories if isinstance(name, str) and name not in avoid),
+            "TripType": sorted(name for name in trip_types if isinstance(name, str) and name not in avoid),
+            "Season": [state["season"]] if state.get("season") else [],
+            "Vehicle": sorted(vehicles),
+            "RequestedStyle": sorted(styles),
+            "RequestedCompanion": sorted(companions),
+        }
+
+        async def write(tx):
+            result = await tx.run(
+                """MERGE (u:User {identifier: $user_id})
+                   ON CREATE SET u.id = randomUUID(), u.created_at = datetime()
+                   WITH u OPTIONAL MATCH (u)-[r:REQUESTED_FOR_TRIP {session_id: $session_id}]->()
+                   DELETE r""",
+                user_id=user_id, session_id=session_id,
+            )
+            await result.consume()
+            for label, names in features.items():
+                if not names:
+                    continue
+                # Labels are hard-coded above; values remain bound parameters.
+                node_clause = (f"MERGE (feature:{label} {{name: name}})" if label in {"RequestedStyle", "RequestedCompanion"}
+                               else f"MATCH (feature:{label} {{name: name}})")
+                result = await tx.run(
+                    f"""UNWIND $names AS name
+                        {node_clause}
+                        MATCH (u:User {{identifier: $user_id}})
+                        MERGE (u)-[r:REQUESTED_FOR_TRIP {{session_id: $session_id}}]->(feature)
+                        SET r.revision = $revision, r.updated_at = datetime()""",
+                    names=names, user_id=user_id, session_id=session_id,
+                    revision=state.get("revision", 0),
+                )
+                await result.consume()
+
+        async with self._driver.session() as session:
+            await session.execute_write(write)
+
+    async def ensure_feature_constraints(self) -> None:
+        """Idempotent migration for feature labels introduced after initial ETL."""
+        await self._write(
+            "CREATE CONSTRAINT requested_style_name IF NOT EXISTS "
+            "FOR (s:RequestedStyle) REQUIRE s.name IS UNIQUE"
+        )
+        await self._write(
+            "CREATE CONSTRAINT requested_companion_name IF NOT EXISTS "
+            "FOR (c:RequestedCompanion) REQUIRE c.name IS UNIQUE"
         )
 
     async def upsert_user(self, user_id: str) -> None:

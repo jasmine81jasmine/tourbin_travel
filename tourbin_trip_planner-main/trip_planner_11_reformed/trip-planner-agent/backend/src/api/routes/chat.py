@@ -260,6 +260,10 @@ async def chat(
             user_id,
             travel_goal.model_dump(),
         )
+        try:
+            await graph_repo.sync_session_features(user_id, session_id, travel_goal.model_dump())
+        except Exception:
+            logger.warning("Could not link session travel insights to user", exc_info=True)
 
     deps = AgentDeps.create(
         memory=memory_client,
@@ -356,13 +360,23 @@ async def chat(
 
         if decision.action == "plan" and travel_goal is not None:
             proposed = map_itineraries or ([itinerary.model_dump()] if itinerary is not None else [])
+            try:
+                # A list of independent suggestions need not have a map route.
+                # Recover only graph destinations actually named in the final
+                # answer, rather than using all candidates the agent searched.
+                names = (await graph_repo.find_destinations_mentioned_in_text(reply_text)
+                         if graph_repo is not None and not proposed and not any(
+                             phrase in reply_text for phrase in ("نتوانستم", "پیدا نکردم", "سازگار نیست")
+                         ) else [])
+                explanation_routes = proposed or [{"stops": [{"name": name}]} for name in names]
+                explanation = await explain_selected_plans(
+                    travel_goal, explanation_routes, graph_repo, memory_client, user_id
+                )
+                if explanation:
+                    reply_text = explanation + "\n\n" + reply_text
+            except Exception:
+                logger.warning("Could not explain plan personalization", exc_info=True)
             if proposed:
-                try:
-                    explanation = await explain_selected_plans(travel_goal, proposed, graph_repo, memory_client, user_id)
-                    if explanation:
-                        reply_text = explanation + "\n\n" + reply_text
-                except Exception:
-                    logger.warning("Could not explain plan personalization", exc_info=True)
                 travel_goal = remember_recommended_routes(travel_goal, proposed)
                 if graph_repo is not None:
                     try:

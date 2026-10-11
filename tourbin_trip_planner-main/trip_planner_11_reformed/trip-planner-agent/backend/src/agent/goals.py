@@ -18,6 +18,8 @@ class TravelGoal(BaseModel):
     season: str | None = None
     companions: list[str] = Field(default_factory=list)
     group_size: int | None = None
+    categories: list[str] = Field(default_factory=list)
+    trip_types: list[str] = Field(default_factory=list)
     moods: list[str] = Field(default_factory=list)
     activities: list[str] = Field(default_factory=list)
     transport: str | None = None
