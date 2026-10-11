@@ -88,7 +88,7 @@ async def test_chat_followup_does_not_run_plan_screen_or_rewrite_reply(monkeypat
     monkeypatch.setattr(route, "understand_turn", answer)
     monkeypatch.setattr(route, "screen_short_trip", forbidden)
 
-    response = await route.chat(ChatRequest(message="گلابدره آب و هواش چطوره؟"), Response())
+    response = await route.chat(ChatRequest(message="گلابدره آب و هواش چطوره؟"), Response(), browser_user_id=None)
     assert "گلابدره" in response.reply
     assert "برای پیشنهاد سفر کوتاه" not in response.reply
     assert response.itinerary is None
@@ -126,7 +126,14 @@ async def test_chat_exposes_independent_map_routes_for_alternative_plans(monkeyp
     monkeypatch.setattr(route, "update_travel_goal", goal)
     monkeypatch.setattr(route, "screen_short_trip", screen)
 
-    response = await route.chat(ChatRequest(message="برای یک روز دو مقصد پیشنهاد بده"), Response())
+    async def explanation(*args):
+        return "### چرا این مقصدها برای تو؟\n- **مقصد 1:** چون طبیعت دوست داری."
+
+    monkeypatch.setattr(route, "explain_selected_plans", explanation)
+
+    response = await route.chat(ChatRequest(message="برای یک روز دو مقصد پیشنهاد بده"), Response(), browser_user_id=None)
+    assert response.reply.startswith("### چرا این مقصدها برای تو؟")
+    assert "#### گزینهٔ 2: مقصد 2" in response.reply
     assert response.itinerary is None
     assert [plan.stops[0].name for plan in response.itineraries] == ["مقصد 1", "مقصد 2"]
     assert response.session_id and response.user_id

@@ -55,10 +55,12 @@ async def search_destinations(
 
     exclude_ids = None
     if exclude_liked_or_visited:
-        history = await ctx.deps.graph.get_user_history(ctx.deps.user_id)
-        # We only have names from history; a production version should also
-        # store ids on User relationships to exclude precisely by id.
-        _ = history  # left in place intentionally; see graph.py TODO note
+        # Exclude only explicit negative feedback and already-visited places.
+        # Liked places remain available for revisits via named-place lookup.
+        try:
+            exclude_ids = await ctx.deps.graph.get_avoided_destination_ids(ctx.deps.user_id)
+        except Exception:
+            exclude_ids = None
 
     # Expand informal/regional phrasing ("شمال", "جنوب", ...) into the
     # concrete city/province names the graph actually has -- see
@@ -99,7 +101,13 @@ async def semantic_search_destinations(
     if not semantic_goal and ctx.deps.travel_goal:
         semantic_goal = ctx.deps.travel_goal.semantic_query
     semantic_goal = semantic_goal or ctx.deps.current_query or ""
-    return await ctx.deps.graph.semantic_search_destinations(semantic_goal, limit=limit)
+    results = await ctx.deps.graph.semantic_search_destinations(semantic_goal, limit=limit)
+    try:
+        avoided = set(await ctx.deps.graph.get_avoided_destination_ids(ctx.deps.user_id))
+        return [row for row in results if row.get("id") not in avoided]
+    except Exception:
+        # Searching still works if user feedback cannot be read.
+        return results
 
 
 async def find_destinations_near(

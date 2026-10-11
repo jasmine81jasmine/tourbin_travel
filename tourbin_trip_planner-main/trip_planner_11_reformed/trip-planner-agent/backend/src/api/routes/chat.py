@@ -16,6 +16,7 @@ from src.agent.dependencies import AgentDeps
 from src.agent.description_format import format_descriptions
 from src.agent.feasibility import ground_route_text, screen_short_trip
 from src.agent.goals import TravelGoal, recall_recommendations, remember_recommended_routes
+from src.agent.personalization import explain_selected_plans
 from src.agent.tools import build_trip_map
 from src.agent.turns import TurnDecision, apply_goal_updates, understand_turn
 from src.api.schemas import ChatRequest, ChatResponse, Itinerary, SessionResponse
@@ -356,6 +357,12 @@ async def chat(
         if decision.action == "plan" and travel_goal is not None:
             proposed = map_itineraries or ([itinerary.model_dump()] if itinerary is not None else [])
             if proposed:
+                try:
+                    explanation = await explain_selected_plans(travel_goal, proposed, graph_repo, memory_client, user_id)
+                    if explanation:
+                        reply_text = explanation + "\n\n" + reply_text
+                except Exception:
+                    logger.warning("Could not explain plan personalization", exc_info=True)
                 travel_goal = remember_recommended_routes(travel_goal, proposed)
                 if graph_repo is not None:
                     try:

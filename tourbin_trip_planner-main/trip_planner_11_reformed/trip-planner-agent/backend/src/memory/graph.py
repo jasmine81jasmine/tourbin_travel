@@ -622,6 +622,17 @@ class TripGraphRepository:
     # User / trip memory (this is what makes the graph "learn")
     # ------------------------------------------------------------------
 
+    async def get_avoided_destination_ids(self, user_id: str) -> list[str]:
+        """Exclude explicitly disliked and visited places from fresh searches."""
+        rows = await self._read(
+            """
+            MATCH (u:User {identifier: $user_id})-[:DISLIKED|VISITED]->(d:Destination)
+            RETURN collect(DISTINCT d.id) AS ids
+            """,
+            user_id=user_id,
+        )
+        return [id for id in rows[0]["ids"] if id] if rows else []
+
     async def get_travel_goal(self, session_id: str, user_id: str) -> dict[str, Any] | None:
         rows = await self._read(
             """

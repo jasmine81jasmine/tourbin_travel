@@ -6,6 +6,22 @@ on:
   workflow_dispatch: {}   # lets you also trigger a deploy manually from the Actions tab
 
 jobs:
+  test-check:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tourbin_trip_planner-main/trip_planner_11_reformed/trip-planner-agent/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: tourbin_trip_planner-main/trip_planner_11_reformed/trip-planner-agent/backend/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+
   # ---------------------------------------------------------------------
   # 1) Build check: tries to build the Docker image right here on GitHub's
   #    runner, BEFORE touching your server. If your Dockerfile or
@@ -40,7 +56,7 @@ jobs:
   # ---------------------------------------------------------------------
   deploy:
     name: Deploy to server
-    needs: build-check
+    needs: [build-check, test-check]
     runs-on: ubuntu-latest
     steps:
       - name: Deploy over SSH
