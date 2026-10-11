@@ -60,6 +60,12 @@ FOR (t:Trip) REQUIRE t.id IS UNIQUE;
 CREATE CONSTRAINT travel_goal_session IF NOT EXISTS
 FOR (g:TravelGoal) REQUIRE g.session_id IS UNIQUE;
 
+CREATE CONSTRAINT requested_style_name IF NOT EXISTS
+FOR (s:RequestedStyle) REQUIRE s.name IS UNIQUE;
+
+CREATE CONSTRAINT requested_companion_name IF NOT EXISTS
+FOR (c:RequestedCompanion) REQUIRE c.name IS UNIQUE;
+
 // --- Vector index for semantic search over destination descriptions ---
 // Dimension must match your embedding config (settings.embedding_dimensions
 // in src/config.py). Set here to 768 to match AvalAI's sample request
