@@ -15,7 +15,8 @@ from src.agent.agent import get_trip_planner_agent, update_travel_goal
 from src.agent.dependencies import AgentDeps
 from src.agent.description_format import format_descriptions
 from src.agent.feasibility import ground_route_text, screen_short_trip
-from src.agent.goals import TravelGoal, recall_recommendations, remember_recommended_routes
+from src.agent.goals import (TravelGoal, insights_from_previous_goal, recall_recommendations,
+                             remember_recommended_routes, with_prior_insights)
 from src.agent.personalization import explain_selected_plans
 from src.agent.tools import build_trip_map
 from src.agent.turns import TurnDecision, apply_goal_updates, understand_turn
@@ -87,6 +88,16 @@ def _previous_goal_concept(state_json: str) -> str | None:
     return "سفر " + " ".join(parts) if parts else "برنامه سفر قبلی‌ات"
 
 
+def _previous_feature_concept(features: dict[str, list[str]]) -> str | None:
+    parts = []
+    for key in ("moods", "categories", "trip_types"):
+        if features.get(key):
+            parts.append(features[key][0])
+    if features.get("companions"):
+        parts.append("با " + features["companions"][0])
+    return "، ".join(parts[:3]) or None
+
+
 async def _load_session_history(memory_client, session_id: str, limit: int = 12):
     if memory_client is None:
         return [], ""
@@ -130,14 +141,23 @@ async def start_session(
     try:
         preferences = await memory_client.long_term.get_preferences_for(user_id)
         driver = memory_client._client._ensure_connected()  # type: ignore[attr-defined]
-        history = await TripGraphRepository(driver).get_user_history(
+        graph = TripGraphRepository(driver)
+        history = await graph.get_user_history(
             user_id,
             exclude_session_id=session_id,
         )
+        try:
+            recent_features = await graph.get_recent_session_features(user_id, session_id)
+        except Exception:
+            logger.warning("Could not load previous trip features for greeting", exc_info=True)
+            recent_features = {}
         remembered: list[str] = []
         if preferences:
             remembered.append(f"یادم هست که {preferences[0].preference}")
-        if history.get("recent_goals"):
+        concept = _previous_feature_concept(recent_features)
+        if concept:
+            remembered.append(f"آخرین بار برای سفری با حال‌وهوای {concept} برنامه می‌خواستی")
+        elif history.get("recent_goals"):
             concept = _previous_goal_concept(history["recent_goals"][0])
             if concept:
                 remembered.append(f"یادم هست آخرین بار درباره {concept} برنامه‌ریزی می‌کردیم")
@@ -254,6 +274,29 @@ async def chat(
                     revision=1,
                 )
     travel_goal = apply_goal_updates(travel_goal, decision.updates)
+    previous_recommendations: dict[str, set[str]] = {"ids": set(), "names": set()}
+    if graph_repo is not None and decision.action == "plan":
+        try:
+            previous_recommendations = await graph_repo.get_previous_recommendations(user_id, session_id)
+        except Exception:
+            logger.warning("Could not load previous recommendations", exc_info=True)
+        try:
+            prior_features = await graph_repo.get_recent_session_features(user_id, session_id)
+            if not prior_features:
+                # Older sessions stored TravelGoal before REQUESTED_FOR_TRIP
+                # existed. Read only their explicit structured fields.
+                older = await graph_repo.get_user_history(user_id, exclude_session_id=session_id)
+                if older.get("recent_goals"):
+                    prior_features = insights_from_previous_goal(older["recent_goals"][0])
+            if travel_goal is not None:
+                travel_goal = with_prior_insights(travel_goal, prior_features)
+        except Exception:
+            logger.warning("Could not load previous trip insights", exc_info=True)
+    if previous_recommendations["names"]:
+        # A named follow-up is a deliberate revisit, never an excluded repeat.
+        named = {name for name in previous_recommendations["names"]
+                 if _explicitly_mentions_destination(request.message, name)}
+        previous_recommendations["names"] -= named
     if graph_repo is not None and travel_goal is not None and (decision.action == "plan" or decision.updates):
         await graph_repo.upsert_travel_goal(
             session_id,
@@ -274,6 +317,7 @@ async def chat(
         travel_goal=travel_goal,
         turn_action=decision.action,
         maps=get_neshan_client(),
+        previous_recommendations=previous_recommendations,
     )
 
     agent = get_trip_planner_agent()
@@ -334,6 +378,7 @@ async def chat(
             description_formatter=lambda rows: format_descriptions(rows, travel_goal),
             graph=graph_repo,
             map_itineraries=map_itineraries,
+            avoid_names=previous_recommendations["names"],
         ) if decision.action == "plan" else None)
         if checked is not None:
             reply_text, verified_route = checked
@@ -358,8 +403,11 @@ async def chat(
         elif itinerary is not None and decision.action == "plan":
             reply_text = ground_route_text(reply_text, itinerary)
 
+        shown_names: list[str] = []
         if decision.action == "plan" and travel_goal is not None:
             proposed = map_itineraries or ([itinerary.model_dump()] if itinerary is not None else [])
+            shown_names = list(dict.fromkeys(stop.get("name") for route in proposed
+                                              for stop in route.get("stops", []) if stop.get("name")))
             try:
                 # A list of independent suggestions need not have a map route.
                 # Recover only graph destinations actually named in the final
@@ -368,6 +416,8 @@ async def chat(
                          if graph_repo is not None and not proposed and not any(
                              phrase in reply_text for phrase in ("نتوانستم", "پیدا نکردم", "سازگار نیست")
                          ) else [])
+                if not proposed:
+                    shown_names = names
                 explanation_routes = proposed or [{"stops": [{"name": name}]} for name in names]
                 explanation = await explain_selected_plans(
                     travel_goal, explanation_routes, graph_repo, memory_client, user_id
@@ -383,6 +433,12 @@ async def chat(
                         await graph_repo.upsert_travel_goal(session_id, user_id, travel_goal.model_dump())
                     except Exception:
                         logger.warning("Could not remember proposed routes for this session", exc_info=True)
+
+        if shown_names and graph_repo is not None:
+            try:
+                await graph_repo.record_shown_destinations(user_id, session_id, shown_names)
+            except Exception:
+                logger.warning("Could not remember shown destinations", exc_info=True)
 
         if memory_client is not None:
             await memory_client.short_term.add_message(

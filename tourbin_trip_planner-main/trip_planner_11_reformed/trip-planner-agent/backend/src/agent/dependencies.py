@@ -21,6 +21,7 @@ class AgentDeps(MemoryDependency):
     travel_goal: TravelGoal | None = None
     turn_action: str = "plan"
     maps: NeshanClient | None = None
+    previous_recommendations: dict[str, set[str]] = field(default_factory=lambda: {"ids": set(), "names": set()})
     # Written by tool_build_trip_map (see src/agent/tools.py) when the agent
     # finalizes a concrete itinerary. Read back by the /api/chat route after
     # agent.run() to attach map-ready {name, latitude, longitude, order}
@@ -38,6 +39,7 @@ class AgentDeps(MemoryDependency):
         travel_goal: TravelGoal | None = None,
         turn_action: str = "plan",
         maps: NeshanClient | None = None,
+        previous_recommendations: dict[str, set[str]] | None = None,
     ) -> "AgentDeps":
         return cls(
             client=memory,
@@ -48,4 +50,5 @@ class AgentDeps(MemoryDependency):
             travel_goal=travel_goal,
             turn_action=turn_action,
             maps=maps,
+            previous_recommendations=previous_recommendations or {"ids": set(), "names": set()},
         )

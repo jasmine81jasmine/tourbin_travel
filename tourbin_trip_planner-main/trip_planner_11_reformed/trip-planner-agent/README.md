@@ -233,9 +233,16 @@ above as a prioritized backlog for the ES team.
 ## How the "memory that updates by interaction" part works
 
 - `tool_save_user_preference` -- called whenever the person reveals a durable
-  fact ("we're celebrating an anniversary", "I don't like off-road driving").
+  fact ("I usually prefer quiet places", "I don't like off-road driving").
   Written to `neo4j-agent-memory`'s long-term preference store, available in
-  future sessions for the same `user_id`.
+  future sessions for the same `user_id`. This depends on the agent calling
+  the tool; a one-trip request is not automatically a permanent preference.
+- Each planning turn stores a session-scoped `TravelGoal` and links the user
+  to requested Category/TripType/Season/Vehicle and requested style/companion
+  nodes through `REQUESTED_FOR_TRIP {session_id}`. A later edit replaces that
+  session's links. A new session can use the last session's category, trip type
+  or mood as a *soft hint* when unspecified, without assuming its companions,
+  dates, origin or transport still apply. Explicit new requests win.
 - `tool_record_trip_plan` -- called after the agent proposes a concrete
   itinerary. Creates a `(:Trip)` linked to the `(:User)` and the
   `(:Destination)` nodes involved, so "plan something like last time" and
@@ -246,6 +253,11 @@ above as a prioritized backlog for the ES team.
 - `tool_get_user_preferences` / `tool_get_user_trip_history` -- called
   proactively at the start of a session so the agent doesn't ask the person
   to repeat context it already has.
+- Final graph-backed suggestions are also recorded as `SHOWN_DESTINATION`
+  per session (not `VISITED`). Future searches prefer unseen, similarly
+  suitable places, while still allowing a named revisit or a repeat if the
+  graph has no credible fresh option. Among comparably ranked candidates a
+  per-user/per-session tie-breaker varies suggestions without relaxing filters.
 
 This is the same pattern Lenny's Memory uses for podcast preference
 learning; we just added the tourism-specific `Trip`/`LIKED`/`DISLIKED`

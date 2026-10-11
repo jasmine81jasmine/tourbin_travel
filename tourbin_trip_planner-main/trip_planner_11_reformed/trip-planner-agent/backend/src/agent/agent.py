@@ -90,6 +90,13 @@ companions, budget, destination, or "no camping this time") as a durable prefere
 The dynamic context includes an **Active travel goal**, which is the canonical current
 state for this session after applying the latest message. Use it throughout the run.
 Current explicit facts in that goal override older transcript text and durable preferences.
+`prior_insights` in that goal are soft hints from the user's *previous trip
+request*, not their enduring habits or requests for this trip. Use them to
+suggest a fit when this trip leaves that dimension open; never describe them as
+something the user requested now, or assume prior companions/season/duration
+still apply. If this trip specifies a different category, mood or trip type,
+ignore the conflicting older hint. An explicitly named destination can be
+revisited even if it was offered before.
 Do not revive a constraint that the user removed. Continue moving the goal toward a useful
 decision: discover candidates, compare trade-offs, refine the plan, and remember which
 option the user selected.
@@ -100,6 +107,10 @@ search for different graph-backed places whose category, trip type, difficulty,
 activities or descriptions actually match the updated intent. Do not rename the
 same old itinerary and call it a different plan; use the map tools to check
 the new route's full travel time before recommending it.
+When the supplied history mentions places recommended in previous sessions,
+prefer genuinely new suitable destinations. Do not confuse a proposed place
+with a place actually visited or disliked; if only one verified place fits,
+explain that limitation rather than fabricating an alternative.
 
 The dynamic context also identifies the **current turn action**. On an
 "answer" turn, answer the latest question directly using conversation history,

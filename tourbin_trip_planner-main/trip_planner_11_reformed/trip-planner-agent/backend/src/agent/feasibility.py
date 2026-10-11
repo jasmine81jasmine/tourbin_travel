@@ -324,7 +324,7 @@ async def _route_plan(maps: Any, origin: tuple[float, float], origin_name: str,
 
 
 async def _multiday_candidates(goal: TravelGoal, graph: Any, messages: list[Any],
-                               mentioned: list[dict]) -> list[dict]:
+                               mentioned: list[dict], avoid_names: set[str] | None = None) -> list[dict]:
     """Search the graph even when the agent returned no place names this turn."""
     location = expand_location(goal.region or ("اطراف تهران" if "اطراف تهران" in goal.objective else None)) or None
     rows = []
@@ -359,7 +359,7 @@ async def _multiday_candidates(goal: TravelGoal, graph: Any, messages: list[Any]
             continue
         seen.add(row["name"])
         result.append(row)
-    recent = set() if _allow_revisit(goal) else _recent_names(goal)
+    recent = set() if _allow_revisit(goal) else _recent_names(goal) | (avoid_names or set())
     unseen = [row for row in result if row["name"] not in recent]
     if len(unseen) >= 2:
         result = unseen
@@ -367,9 +367,9 @@ async def _multiday_candidates(goal: TravelGoal, graph: Any, messages: list[Any]
 
 
 async def _discover_multiday_plans(goal: TravelGoal, maps: Any, graph: Any, messages: list[Any],
-                                   mentioned: list[dict], origin: tuple[float, float],
-                                   budget: float) -> list[dict]:
-    pool = await _multiday_candidates(goal, graph, messages, mentioned)
+                                    mentioned: list[dict], origin: tuple[float, float],
+                                    budget: float, avoid_names: set[str] | None = None) -> list[dict]:
+    pool = await _multiday_candidates(goal, graph, messages, mentioned, avoid_names)
     if len(pool) < 2:
         return []
     # A few likely anchors, not every graph node: route requests have quotas.
@@ -411,6 +411,10 @@ async def _discover_multiday_plans(goal: TravelGoal, maps: Any, graph: Any, mess
                           if row.get("latitude") is not None and row.get("longitude") is not None]
             except Exception:
                 pass
+        if avoid_names:
+            fresh_nearby = [row for row in nearby if row.get("name") not in avoid_names]
+            if fresh_nearby:
+                nearby = fresh_nearby
         for count in range(min(_trip_days(goal), len(nearby) + 1, 3), 1, -1):
             chosen = [anchor, *nearby[:count - 1]]
             key = frozenset(row["name"] for row in chosen)
@@ -476,9 +480,10 @@ async def _render_multiday_plans(
 async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[Any], reply: str,
                             itinerary: Any = None,
                             description_formatter: Callable[[dict[str, dict]], Awaitable[dict[str, str]]] | None = None,
-                            graph: Any = None,
-                            map_itineraries: list[dict] | None = None,
-                            ) -> tuple[str, dict | None] | None:
+                             graph: Any = None,
+                             map_itineraries: list[dict] | None = None,
+                             avoid_names: set[str] | None = None,
+                             ) -> tuple[str, dict | None] | None:
     """Return a grounded replacement when the model proposes a short trip.
 
     No inferred coordinates or straight-line estimates are used as road ETA.
@@ -511,10 +516,12 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
             verified = await _route_plan(maps, origin, origin_name, rows, budget)
             old_routes = (set() if _allow_revisit(goal)
                           else {frozenset(route) for route in goal.recommended_routes})
-            if verified and frozenset(stop["name"] for stop in verified["stops"]) not in old_routes:
+            if (verified and frozenset(stop["name"] for stop in verified["stops"]) not in old_routes
+                    and not any(stop["name"] in (avoid_names or set()) for stop in verified["stops"])):
                 plans.append(verified)
         if len(plans) < 2:
-            discovered_plans = await _discover_multiday_plans(goal, maps, graph, messages, candidates, origin, budget)
+            discovered_plans = await _discover_multiday_plans(goal, maps, graph, messages, candidates, origin, budget,
+                                                               avoid_names)
             for plan in discovered_plans:
                 places = frozenset(stop["name"] for stop in plan["stops"])
                 if places not in [frozenset(stop["name"] for stop in current["stops"]) for current in plans]:
@@ -523,6 +530,9 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
                     break
         if not plans:
             nearby = await _discover_nearby(goal, maps, origin, budget, set())
+            fresh_nearby = [option for option in nearby if option[0].get("name") not in (avoid_names or set())]
+            if fresh_nearby:
+                nearby = fresh_nearby
             nearby_rows = [row for row, _, _, _ in nearby]
             if goal.region == "شمال":
                 nearby_rows = [row for row in nearby_rows if row["latitude"] > origin[0] + 0.3]
@@ -559,6 +569,13 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
                 if len(candidates) >= 6:
                     break
 
+    # Earlier sessions' suggestions are options already shown, not visits.
+    # Preserve explicit revisits and retain the original pool if exhausted.
+    if avoid_names:
+        fresh = [row for row in candidates if row.get("name") not in avoid_names]
+        if fresh:
+            candidates = fresh
+
     feasible = []
     verified = 0
     for row in candidates[:5]:
@@ -577,6 +594,8 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
 
     if not feasible and origin is not None and maps is not None and maps.enabled:
         for row in _unused_search_candidates(messages, {r.get("name") for r in candidates}):
+            if avoid_names and row.get("name") in avoid_names:
+                continue
             lat, lon = row.get("latitude"), row.get("longitude")
             if lat is None or lon is None:
                 continue
@@ -595,6 +614,9 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
             feasible = await _discover_nearby(goal, maps, origin, budget, {r.get("name") for r in candidates})
             if goal.region == "شمال":
                 feasible = [option for option in feasible if option[0]["latitude"] > origin[0] + 0.3]
+            fresh_nearby = [option for option in feasible if option[0].get("name") not in (avoid_names or set())]
+            if fresh_nearby:
+                feasible = fresh_nearby
         discovered = bool(feasible)
 
     if not feasible:

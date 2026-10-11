@@ -176,6 +176,7 @@ async def test_chat_explains_named_alternatives_without_map_results(monkeypatch)
 
     class Graph:
         synced_calls = []
+        shown_calls = []
 
         def __init__(self, *args):
             pass
@@ -191,6 +192,15 @@ async def test_chat_explains_named_alternatives_without_map_results(monkeypatch)
             assert state["trip_types"] == [] or "کمپ" in state["accommodation"]
             Graph.synced_calls.append((user_id, session_id))
 
+        async def get_previous_recommendations(self, user_id, session_id):
+            return {"ids": set(), "names": set()}
+
+        async def get_recent_session_features(self, user_id, session_id):
+            return {}
+
+        async def record_shown_destinations(self, user_id, session_id, names):
+            Graph.shown_calls.append((user_id, session_id, names))
+
         async def find_destinations_mentioned_in_text(self, reply):
             assert "آبشار لاتون" in reply and "دریاچه نئور" in reply
             return ["آبشار لاتون", "دریاچه نئور"]
@@ -198,7 +208,7 @@ async def test_chat_explains_named_alternatives_without_map_results(monkeypatch)
         async def get_destination_details(self, name):
             return {"name": name, "categories": ["طبیعت"], "trip_types": ["کمپ"]}
 
-        async def get_user_history(self, user_id):
+        async def get_user_history(self, user_id, exclude_session_id=None):
             return {"liked": []}
 
     class Agent:
@@ -251,3 +261,5 @@ async def test_chat_explains_named_alternatives_without_map_results(monkeypatch)
     assert "**آبشار لاتون:**" in response.reply and "**دریاچه نئور:**" in response.reply
     assert response.itinerary is None and response.itineraries == []
     assert Graph.synced_calls == [(response.user_id, response.session_id)]
+    assert Graph.shown_calls == [(response.user_id, response.session_id,
+                                  ["آبشار لاتون", "دریاچه نئور"])]

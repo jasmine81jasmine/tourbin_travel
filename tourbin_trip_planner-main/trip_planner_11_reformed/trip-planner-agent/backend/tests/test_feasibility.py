@@ -93,6 +93,28 @@ async def test_long_graph_article_becomes_short_plan_card():
 
 
 @pytest.mark.asyncio
+async def test_day_trip_screen_prefers_new_place_over_last_sessions_option():
+    messages = [ModelRequest(parts=[ToolReturnPart(
+        tool_name="tool_search_destinations",
+        content=json.dumps([{"id": "old", "name": "مقصد قدیمی", "latitude": 35.8, "longitude": 51.4},
+                            {"id": "new", "name": "مقصد تازه", "latitude": 35.9, "longitude": 51.5}]),
+        tool_call_id="t",
+    )])]
+
+    class FastMaps(_Maps):
+        async def route(self, origin, destination):
+            return {"distance_km": 25, "duration_hours": .5}
+
+    reply, route = await screen_short_trip(
+        TravelGoal(duration="یک روز"), FastMaps(), messages,
+        "مقصد قدیمی یا مقصد تازه", avoid_names={"مقصد قدیمی"},
+    )
+    assert "#### گزینهٔ 1: مقصد تازه" in reply
+    assert "مقصد قدیمی" not in reply
+    assert route["stops"][0]["name"] == "مقصد تازه"
+
+
+@pytest.mark.asyncio
 async def test_short_trip_uses_formatter_only_for_description_not_route():
     messages = [ModelRequest(parts=[ToolReturnPart(
         tool_name="tool_get_destination_details",

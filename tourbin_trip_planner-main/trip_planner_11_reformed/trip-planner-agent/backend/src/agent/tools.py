@@ -17,6 +17,7 @@ from pydantic_ai import RunContext
 from src.agent.dependencies import AgentDeps
 from src.agent.geo import estimate_duration_hours, haversine_km, point_in_any_polygon
 from src.agent.regions import expand_location
+from src.agent.variety import vary_candidates
 
 # Tehran city-center coordinates, used as the default trip origin when the
 # user hasn't given/updated one (matches SYSTEM_PROMPT's default assumption).
@@ -68,7 +69,7 @@ async def search_destinations(
     # unchanged (expand_location returns [location] in that case).
     location_candidates = expand_location(location)
 
-    return await ctx.deps.graph.search_destinations(
+    results = await ctx.deps.graph.search_destinations(
         categories=categories,
         seasons=seasons,
         trip_types=trip_types,
@@ -79,8 +80,9 @@ async def search_destinations(
         stay_duration=stay_duration,
         ecotourism=ecotourism,
         exclude_destination_ids=exclude_ids,
-        limit=limit,
+        limit=min(max(limit * 3, limit), 40),
     )
+    return vary_candidates(results, ctx.deps.previous_recommendations, ctx.deps.user_id, ctx.deps.session_id, limit)
 
 
 async def get_destination_details(ctx: RunContext[AgentDeps], name_or_id: str) -> dict[str, Any]:
@@ -101,13 +103,14 @@ async def semantic_search_destinations(
     if not semantic_goal and ctx.deps.travel_goal:
         semantic_goal = ctx.deps.travel_goal.semantic_query
     semantic_goal = semantic_goal or ctx.deps.current_query or ""
-    results = await ctx.deps.graph.semantic_search_destinations(semantic_goal, limit=limit)
+    results = await ctx.deps.graph.semantic_search_destinations(semantic_goal, limit=min(limit * 3, 30))
     try:
         avoided = set(await ctx.deps.graph.get_avoided_destination_ids(ctx.deps.user_id))
-        return [row for row in results if row.get("id") not in avoided]
+        results = [row for row in results if row.get("id") not in avoided]
     except Exception:
         # Searching still works if user feedback cannot be read.
-        return results
+        pass
+    return vary_candidates(results, ctx.deps.previous_recommendations, ctx.deps.user_id, ctx.deps.session_id, limit, semantic=True)
 
 
 async def find_destinations_near(

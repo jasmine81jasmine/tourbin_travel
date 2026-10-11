@@ -118,6 +118,19 @@ async def explain_selected_plans(goal: TravelGoal, routes: list[dict], graph, me
             reasons.append(f"ویژگی «{evidence}» آن با علاقه‌ات به {remembered_match} که از گفتگوهای قبلی به یاد دارم جور درمی‌آید")
         elif remembered_match and current_match:
             reasons.append("این علاقه را از گفتگوهای قبلی‌مان هم به یاد دارم")
+        prior = " ".join(value for key in ("categories", "trip_types")
+                         for value in goal.prior_insights.get(key, []))
+        prior_match = _matching_interest(prior, tags, avoided)
+        if prior_match and prior_match != current_match:
+            evidence = next((tag for tag in tags if isinstance(tag, str) and len(tag) <= 35
+                             and _matching_interest(prior_match, [tag], avoided)), prior_match)
+            reasons.append(f"ویژگی «{evidence}» آن به درخواست {prior_match} در سفر قبلی‌ات هم نزدیک است")
+        if ("ماجراجویانه" in goal.prior_insights.get("moods", [])
+                and "ماجراجویانه" not in goal.moods):
+            adventure = next((tag for tag in tags if isinstance(tag, str)
+                              and any(term in tag for term in ADVENTURE_TAGS)), None)
+            if adventure:
+                reasons.append(f"ویژگی «{adventure}» آن با حال‌وهوای ماجراجویانهٔ سفر قبلی‌ات جور است")
         if name in liked:
             reasons.append("این مقصد را قبلاً هم پسندیده بودی")
         if not reasons and name in current and tags:

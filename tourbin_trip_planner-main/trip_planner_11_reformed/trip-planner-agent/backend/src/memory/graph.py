@@ -299,7 +299,8 @@ class TripGraphRepository:
                d.distance_km AS distance_km, d.travel_time_hours AS travel_time_hours,
                d.stay_duration AS stay_duration, d.physical_readiness AS physical_readiness,
                d.road_type AS road_type, d.ecotourism AS ecotourism,
-               d.facilities_level AS facilities_level, d.user_rating_text AS user_rating_text,
+                d.facilities_level AS facilities_level, d.facilities_score AS facilities_score,
+                d.user_rating_text AS user_rating_text,
                d.user_rating_score AS user_rating_score,
                d.location.latitude AS latitude, d.location.longitude AS longitude,
                $osm_only AS source_is_osm
@@ -357,7 +358,8 @@ class TripGraphRepository:
                other.distance_km AS distance_km, other.travel_time_hours AS travel_time_hours,
                other.stay_duration AS stay_duration, other.physical_readiness AS physical_readiness,
                other.road_type AS road_type, other.ecotourism AS ecotourism,
-               other.facilities_level AS facilities_level, other.user_rating_text AS user_rating_text,
+                other.facilities_level AS facilities_level, other.facilities_score AS facilities_score,
+                other.user_rating_text AS user_rating_text,
                other.user_rating_score AS user_rating_score,
                other.location.latitude AS latitude, other.location.longitude AS longitude,
                anchor.name AS near_anchor, r.distance_km AS distance_to_anchor_km,
@@ -436,7 +438,8 @@ class TripGraphRepository:
                d.distance_km AS distance_km, d.travel_time_hours AS travel_time_hours,
                d.stay_duration AS stay_duration, d.physical_readiness AS physical_readiness,
                d.road_type AS road_type, d.ecotourism AS ecotourism,
-               d.facilities_level AS facilities_level, d.user_rating_text AS user_rating_text,
+                d.facilities_level AS facilities_level, d.facilities_score AS facilities_score,
+                d.user_rating_text AS user_rating_text,
                d.user_rating_score AS user_rating_score,
                d.location.latitude AS latitude, d.location.longitude AS longitude,
                round(distance_from_center_km, 1) AS distance_from_center_km,
@@ -623,7 +626,8 @@ class TripGraphRepository:
                city, province, categories, seasons, trip_types,
                d.distance_km AS distance_km, d.travel_time_hours AS travel_time_hours,
                d.physical_readiness AS physical_readiness, d.road_type AS road_type,
-               d.facilities_level AS facilities_level, d:OsmFeature AS source_is_osm,
+                d.facilities_level AS facilities_level, d.facilities_score AS facilities_score,
+                d.user_rating_score AS user_rating_score, d:OsmFeature AS source_is_osm,
                d.location.latitude AS latitude, d.location.longitude AS longitude,
                score AS semantic_score
         ORDER BY score DESC, CASE WHEN d:OsmFeature THEN 1 ELSE 0 END,
@@ -658,6 +662,86 @@ class TripGraphRepository:
             user_id=user_id,
         )
         return [id for id in rows[0]["ids"] if id] if rows else []
+
+    async def get_recent_session_features(self, user_id: str, exclude_session_id: str) -> dict[str, list[str]]:
+        """Return the latest *request*, not a permanent preference."""
+        rows = await self._read(
+            """
+            MATCH (u:User {identifier: $user_id})-[r:REQUESTED_FOR_TRIP]->(feature)
+            WHERE r.session_id <> $exclude_session_id
+            WITH r.session_id AS prior_session, max(r.updated_at) AS latest
+            ORDER BY latest DESC LIMIT 1
+            MATCH (u:User {identifier: $user_id})-[r:REQUESTED_FOR_TRIP {session_id: prior_session}]->(feature)
+            RETURN labels(feature) AS labels, feature.name AS name
+            """,
+            user_id=user_id, exclude_session_id=exclude_session_id,
+        )
+        labels = {"Category": "categories", "TripType": "trip_types", "RequestedStyle": "moods",
+                  "RequestedCompanion": "companions", "Vehicle": "vehicles", "Season": "seasons"}
+        features: dict[str, list[str]] = {}
+        for row in rows:
+            if not isinstance(row.get("name"), str):
+                continue
+            for label in row.get("labels") or []:
+                if label in labels:
+                    features.setdefault(labels[label], []).append(row["name"])
+                    break
+        return features
+
+    async def get_previous_recommendations(self, user_id: str, exclude_session_id: str) -> dict[str, set[str]]:
+        """Places shown in older sessions are distinct from visited/disliked places."""
+        rows = await self._read(
+            """
+            MATCH (u:User {identifier: $user_id})
+            CALL (u) {
+                OPTIONAL MATCH (u)-[r:SHOWN_DESTINATION]->(shown:Destination)
+                WHERE r.session_id <> $exclude_session_id
+                RETURN collect(DISTINCT {id: shown.id, name: shown.name}) AS shown
+            }
+            CALL (u) {
+                OPTIONAL MATCH (u)-[:PLANNED]->(:Trip)-[:INCLUDES]->(planned:Destination)
+                RETURN collect(DISTINCT {id: planned.id, name: planned.name}) AS planned
+            }
+            CALL (u) {
+                OPTIONAL MATCH (u)-[:HAS_GOAL]->(goal:TravelGoal)
+                WHERE goal.session_id <> $exclude_session_id
+                WITH goal ORDER BY goal.updated_at DESC
+                RETURN collect(goal.state_json)[0..5] AS recent_goals
+            }
+            RETURN shown, planned, recent_goals
+            """,
+            user_id=user_id, exclude_session_id=exclude_session_id,
+        )
+        previous = {"ids": set(), "names": set()}
+        if rows:
+            for row in (rows[0].get("shown") or []) + (rows[0].get("planned") or []):
+                if row.get("id"):
+                    previous["ids"].add(row["id"])
+                if row.get("name"):
+                    previous["names"].add(row["name"])
+            for state_json in rows[0].get("recent_goals") or []:
+                try:
+                    state = json.loads(state_json)
+                    for route in state.get("recommended_routes") or []:
+                        previous["names"].update(name for name in route if isinstance(name, str))
+                except (TypeError, ValueError, AttributeError):
+                    continue
+        return previous
+
+    async def record_shown_destinations(self, user_id: str, session_id: str, names: list[str]) -> None:
+        """Remember actual graph-backed suggestions, without marking them visited."""
+        if not names:
+            return
+        await self._write(
+            """
+            MATCH (u:User {identifier: $user_id})
+            UNWIND $names AS name
+            MATCH (d:Destination {name: name})
+            MERGE (u)-[r:SHOWN_DESTINATION {session_id: $session_id}]->(d)
+            ON CREATE SET r.shown_at = datetime()
+            """,
+            user_id=user_id, session_id=session_id, names=list(dict.fromkeys(names))[:10],
+        )
 
     async def get_travel_goal(self, session_id: str, user_id: str) -> dict[str, Any] | None:
         rows = await self._read(

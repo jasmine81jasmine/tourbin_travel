@@ -98,7 +98,9 @@ async def test_search_excludes_feedback_ids_and_semantic_results():
         async def semantic_search_destinations(self, goal, limit):
             return [{"id": "disliked-id"}, {"id": "safe-id"}]
 
-    deps = SimpleNamespace(graph=SearchGraph(), user_id="user-a", travel_goal=None, current_query="طبیعت")
+    deps = SimpleNamespace(graph=SearchGraph(), user_id="user-a", session_id="session-a",
+                           previous_recommendations={"ids": set(), "names": set()},
+                           travel_goal=None, current_query="طبیعت")
     ctx = SimpleNamespace(deps=deps)
     assert await search_destinations(ctx) == [{"id": "safe-id"}]
     assert await semantic_search_destinations(ctx) == [{"id": "safe-id"}]
@@ -253,3 +255,17 @@ async def test_adventure_is_not_inferred_from_nature_tag_alone():
     assert "همراهان: پارتنر" in text
     assert "دربارهٔ میزان هیجان این مقصد اطلاعات تأییدشدهٔ کافی ندارم" in text
     assert "با سفر ماجراجویانه‌ای که خواستی هماهنگ است" not in text
+
+
+@pytest.mark.asyncio
+async def test_explanation_credits_prior_request_without_calling_it_current_or_durable():
+    class AdventureGraph(Graph):
+        async def get_destination_details(self, name):
+            return {"name": name, "categories": ["طبیعت", "کوهنوردی"], "trip_types": []}
+
+    goal = TravelGoal(objective="یه سفر پیشنهاد بده", prior_insights={
+        "categories": ["طبیعت"], "moods": ["ماجراجویانه"]
+    })
+    text = await explain_selected_plans(goal, route("کوه الف"), AdventureGraph(), None, "user-a")
+    assert "در سفر قبلی‌ات" in text and "حال‌وهوای ماجراجویانهٔ سفر قبلی‌ات" in text
+    assert "در این سفر به طبیعت گفتی" not in text and "همیشه" not in text
