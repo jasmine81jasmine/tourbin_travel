@@ -79,6 +79,19 @@ async def test_explicit_plan_for_previously_suggested_place_is_not_an_answer(mon
 
 
 @pytest.mark.asyncio
+async def test_memory_based_plan_request_overrides_bad_answer_classification(monkeypatch):
+    class FakeAgent:
+        async def run(self, prompt):
+            return SimpleNamespace(output='{"action":"answer","updates":{}}')
+
+    monkeypatch.setattr(turns, "_turn_agent", lambda: FakeAgent())
+    decision = await turns.understand_turn(
+        "با توجه به چیزایی ک از من میدونی یه برنامه سفر برام بریز", TravelGoal(), ""
+    )
+    assert decision.action == "plan"
+
+
+@pytest.mark.asyncio
 async def test_first_travel_request_cannot_be_misclassified_as_chat(monkeypatch):
     class FakeAgent:
         async def run(self, prompt):

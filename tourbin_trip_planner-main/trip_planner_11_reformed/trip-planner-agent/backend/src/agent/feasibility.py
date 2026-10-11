@@ -250,7 +250,8 @@ def _allow_revisit(goal: TravelGoal) -> bool:
 
 
 def _adventure_intent(goal: TravelGoal) -> bool:
-    text = " ".join([goal.objective.rsplit("اصلاح جدید:", 1)[-1], *goal.moods, *goal.activities])
+    moods = [mood for mood in (goal.moods or goal.prior_insights.get("moods", [])) if mood not in goal.avoid]
+    text = " ".join([goal.objective.rsplit("اصلاح جدید:", 1)[-1], *moods, *goal.activities])
     return any(term in text for term in ("هیجان", "ماجراجو", "چالش", "آفرود", "رفتینگ", "صخره"))
 
 
@@ -270,7 +271,8 @@ def _intent_score(row: dict, goal: TravelGoal) -> float:
         score += sum(1.5 for term in terms if term in text)
         if row.get("physical_readiness") == "زیاد":
             score += 2
-    if goal.moods and any(mood in ("آرام", "خلوت") for mood in goal.moods):
+    moods = [mood for mood in (goal.moods or goal.prior_insights.get("moods", [])) if mood not in goal.avoid]
+    if moods and any(mood in ("آرام", "خلوت") for mood in moods):
         score += sum(2 for term in ("دنج", "آرام", "خلوت", "بکر") if term in tags or term in text)
     for activity in goal.activities:
         if activity in tags:
@@ -339,7 +341,8 @@ async def _multiday_candidates(goal: TravelGoal, graph: Any, messages: list[Any]
             except Exception:
                 pass
         try:
-            if "کمپ" in goal.objective or "چادر" in goal.objective:
+            if ("کمپ" in goal.objective or "چادر" in goal.objective
+                    or ("کمپ" in goal.prior_insights.get("trip_types", []) and "کمپ" not in goal.avoid)):
                 rows += await graph.search_destinations(trip_types=["کمپ"], location=location, limit=80)
             rows += await graph.search_destinations(location=location, limit=100)
         except Exception:
@@ -373,7 +376,8 @@ async def _discover_multiday_plans(goal: TravelGoal, maps: Any, graph: Any, mess
     if len(pool) < 2:
         return []
     # A few likely anchors, not every graph node: route requests have quotas.
-    camping = "کمپ" in goal.objective or "چادر" in goal.objective
+    camping = ("کمپ" in goal.objective or "چادر" in goal.objective
+               or ("کمپ" in goal.prior_insights.get("trip_types", []) and "کمپ" not in goal.avoid))
     ranked = sorted(pool, key=lambda row: (
         -_intent_score(row, goal),
         0 if camping and "کمپ" in (row.get("trip_types") or []) else 1 if camping else 0,

@@ -143,7 +143,14 @@ to turns actually requesting a new or revised plan.
    phrasing yourself instead of passing it through literally: a month name
    ("شهریور") maps to its season, "چند روز" is a soft few-day window (not an
    exact `stay_duration` tag), an informal region ("شمال", "جنوب", "کویر", ...)
-   is a real, well-covered part of Iran, not an unknown place.
+    is a real, well-covered part of Iran, not an unknown place.
+   If the person simply asks for a plan based on what you remember, use only
+   the remembered *soft* interests that actually exist, start with practical
+   graph-backed places near the default Tehran origin, and make a usable plan
+   rather than offering an unverified list of faraway places followed by a
+   question asking whether you should start planning. If duration is unstated,
+   clearly state a reasonable short-trip assumption instead of attributing it
+   to the person. Do not recommend a destination outside Iran.
 4. Call `tool_list_available_filters` if you're unsure which category/season/trip
    type values actually exist in the graph -- don't invent filter values.
 5. Call `tool_search_destinations` with the constraints translated into graph
@@ -406,6 +413,8 @@ async def update_travel_goal(
 ) -> TravelGoal:
     current = current_goal or TravelGoal()
     updated = current.model_copy(deep=True)
+    if updated.origin in {"من", "ما", "تو", "شما", "خودم"}:
+        updated.origin = "تهران"  # repair goals saved before the origin parser fix
     normalized_message = latest_message.replace("‌", " ")
     updated.objective = (
         normalized_message if not current.objective
@@ -432,7 +441,7 @@ async def update_travel_goal(
         origin = origin_match.group(1) or origin_match.group(2)
     else:
         origin = None
-    if origin and origin not in {"سفر", "این", "اون", "آنجا"}:
+    if origin and origin not in {"سفر", "این", "اون", "آنجا", "من", "ما", "تو", "شما", "خودم"}:
         updated.origin = origin
 
     for region in ("شمال", "جنوب", "کویر", "غرب", "شرق"):

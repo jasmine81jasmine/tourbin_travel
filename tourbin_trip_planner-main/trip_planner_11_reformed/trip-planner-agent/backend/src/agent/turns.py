@@ -33,7 +33,9 @@ def apply_goal_updates(goal: TravelGoal | None, updates: dict[str, Any]) -> Trav
     if not updates:
         return goal
     state = (goal or TravelGoal()).model_dump()
-    state.update({key: value for key, value in updates.items() if key in _UPDATABLE})
+    state.update({key: value for key, value in updates.items()
+                  if key in _UPDATABLE and not (key == "origin" and isinstance(value, str)
+                                              and value in {"من", "ما", "تو", "شما", "خودم"})})
     try:
         return TravelGoal.model_validate(state)
     except Exception:
@@ -103,7 +105,8 @@ async def understand_turn(message: str, goal: TravelGoal | None, transcript: str
         action = parsed["action"]
         # A request for a plan is not a question about an existing plan,
         # even when it names a previously suggested destination.
-        if action != "plan" and re.search(r"برنامه\s*(?:بده|بساز|بچین)", message.replace("‌", " ")):
+        if action != "plan" and re.search(r"برنامه(?:\s+سفر)?(?:\s+برام)?\s*(?:بده|بساز|بچین|بریز)",
+                                          message.replace("‌", " ")):
             action = "plan"
         if action != "plan" and goal is None and _fallback_action(message, False) == "plan":
             action = "plan"

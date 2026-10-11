@@ -6,6 +6,7 @@ the query/business logic is easy to unit test independently of pydantic-ai.
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -16,7 +17,7 @@ from pydantic_ai import RunContext
 
 from src.agent.dependencies import AgentDeps
 from src.agent.geo import estimate_duration_hours, haversine_km, point_in_any_polygon
-from src.agent.regions import expand_location
+from src.agent.regions import IRAN_REGION_ALIASES, expand_location
 from src.agent.variety import vary_candidates
 
 # Tehran city-center coordinates, used as the default trip origin when the
@@ -35,6 +36,20 @@ _MONTH_TO_SEASON = {
 }
 
 _TEHRAN_TZ = ZoneInfo("Asia/Tehran")
+
+
+def _default_tehran_area(ctx: RunContext[AgentDeps], location: str | None = None) -> bool:
+    """Keep an unspecified first suggestion practical for the Tehran origin."""
+    goal = ctx.deps.travel_goal
+    if location or not goal or goal.origin != "تهران" or goal.region or goal.destination_names:
+        return False
+    if goal.duration and re.search(r"(?:سه|چهار|پنج|شش|[3-9۳-۹])\s*روز", goal.duration):
+        return False
+    text = (ctx.deps.current_query or "").replace("‌", " ")
+    if any(place in text for place in ("کل ایران", "سراسر ایران", "هر جای ایران", "هرجا",
+                                       "شیراز", "اصفهان", "مشهد", "تبریز", "کیش", "قشم", "اهواز")):
+        return False
+    return not any(alias in text for alias in IRAN_REGION_ALIASES if alias not in {"اطراف تهران", "حومه تهران"})
 
 
 async def search_destinations(
@@ -67,7 +82,7 @@ async def search_destinations(
     # concrete city/province names the graph actually has -- see
     # src.agent.regions. A literal city/province name passes through
     # unchanged (expand_location returns [location] in that case).
-    location_candidates = expand_location(location)
+    location_candidates = expand_location("اطراف تهران" if _default_tehran_area(ctx, location) else location)
 
     results = await ctx.deps.graph.search_destinations(
         categories=categories,
@@ -104,6 +119,11 @@ async def semantic_search_destinations(
         semantic_goal = ctx.deps.travel_goal.semantic_query
     semantic_goal = semantic_goal or ctx.deps.current_query or ""
     results = await ctx.deps.graph.semantic_search_destinations(semantic_goal, limit=min(limit * 3, 30))
+    if _default_tehran_area(ctx):
+        results = [row for row in results if row.get("latitude") is not None
+                   and row.get("longitude") is not None
+                   and haversine_km(DEFAULT_ORIGIN["latitude"], DEFAULT_ORIGIN["longitude"],
+                                    float(row["latitude"]), float(row["longitude"])) <= 300]
     try:
         avoided = set(await ctx.deps.graph.get_avoided_destination_ids(ctx.deps.user_id))
         results = [row for row in results if row.get("id") not in avoided]

@@ -258,6 +258,11 @@ above as a prioritized backlog for the ES team.
   suitable places, while still allowing a named revisit or a repeat if the
   graph has no credible fresh option. Among comparably ranked candidates a
   per-user/per-session tie-breaker varies suggestions without relaxing filters.
+- Questions such as «تو چیا از من میدونی؟» read user-scoped stored preferences,
+  earlier session requests and explicit destination feedback directly; the
+  agent does not guess a memory answer. A broad request to plan from memory
+  without a duration first screens a clearly labelled one-day assumption near
+  Tehran, rather than presenting unverified faraway destinations as a plan.
 
 This is the same pattern Lenny's Memory uses for podcast preference
 learning; we just added the tourism-specific `Trip`/`LIKED`/`DISLIKED`

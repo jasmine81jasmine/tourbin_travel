@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from uuid import uuid4
 
 from fastapi import APIRouter, Cookie, HTTPException, Response
@@ -17,6 +18,7 @@ from src.agent.description_format import format_descriptions
 from src.agent.feasibility import ground_route_text, screen_short_trip
 from src.agent.goals import (TravelGoal, insights_from_previous_goal, recall_recommendations,
                              remember_recommended_routes, with_prior_insights)
+from src.agent.memory_summary import summarize_user_memory
 from src.agent.personalization import explain_selected_plans
 from src.agent.tools import build_trip_map
 from src.agent.turns import TurnDecision, apply_goal_updates, understand_turn
@@ -62,6 +64,34 @@ def _is_only_greeting(message: str) -> bool:
     return len(text) <= 30 and any(term in text for term in GREETING_TERMS) and not any(
         term in text for term in TRAVEL_TERMS
     )
+
+
+def _is_memory_question(message: str) -> bool:
+    text = " ".join(message.lower().replace("‌", " ").replace("ي", "ی").split())
+    if _has_plan_request(text):
+        return False
+    return ((any(term in text for term in ("از من میدونی", "از من می دونی", "درباره من میدونی",
+                                        "درباره من می دونی", "از من یادت", "درباره من یادت",
+                                        "چه چیزایی از من", "چیا از من", "چی از من",
+                                        "چی درباره من", "راجع به من چی", "چقدر منو میشناسی",
+                                        "چقدر منو می شناسی", "ازم چی میدونی", "ازم چی می دونی",
+                                        "برنامه سفرهام چی", "سفرهام چی میدونی"))
+             and any(term in text for term in ("چی", "چه", "میدونی", "می دونی", "یادت")))
+            or "what do you know about me" in text or "what do you remember about me" in text)
+
+
+def _has_plan_request(text: str) -> bool:
+    return bool(re.search(r"(?:برنامه|پلن).{0,30}(?:بده|بریز|بساز|بچین|پیشنهاد)"
+                          r"|(?:سفر|مقصد).{0,18}(?:پیشنهاد بده|معرفی کن)", text)
+                or "plan a trip" in text or "recommend a trip" in text)
+
+
+def _is_memory_based_plan(message: str) -> bool:
+    text = " ".join(message.lower().replace("‌", " ").replace("ي", "ی").split())
+    return (any(term in text for term in ("از من میدونی", "از من می دونی", "ازم میدونی",
+                                         "ازم می دونی", "بر اساس شناختت", "چیزایی که میدونی",
+                                         "based on what you know"))
+            and _has_plan_request(text))
 
 
 def _explicitly_mentions_destination(message: str, destination_name: str) -> bool:
@@ -227,7 +257,11 @@ async def chat(
     message_history, recent_transcript = await _load_session_history(memory_client, session_id)
     current_goal = None
     if graph_repo is not None:
-        stored_goal = await graph_repo.get_travel_goal(session_id, user_id)
+        try:
+            stored_goal = await graph_repo.get_travel_goal(session_id, user_id)
+        except Exception:
+            logger.warning("Could not load this session's travel goal", exc_info=True)
+            stored_goal = None
         if stored_goal:
             try:
                 current_goal = TravelGoal.model_validate(stored_goal)
@@ -236,7 +270,7 @@ async def chat(
     if current_goal is not None:
         current_goal = recall_recommendations(current_goal, recent_transcript)
 
-    if not _is_travel_related(request.message):
+    if not _is_travel_related(request.message) and not _is_memory_question(request.message):
         named_destination = None
         if graph_repo is not None:
             named_destination = await graph_repo.get_destination_details(request.message)
@@ -254,6 +288,21 @@ async def chat(
                 session_id=session_id,
                 user_id=user_id,
             )
+
+    if _is_memory_question(request.message):
+        reply = await summarize_user_memory(memory_client, graph_repo, user_id, session_id, current_goal)
+        if memory_client is not None:
+            try:
+                for role, content in (("user", request.message), ("assistant", reply)):
+                    await memory_client.short_term.add_message(
+                        session_id=session_id, role=role, content=content,
+                        metadata={"user_id": user_id}, user_identifier=user_id,
+                        extract_entities=False, extract_relations=False,
+                        generate_embedding=False, extraction_mode="skip",
+                    )
+            except Exception:
+                logger.warning("Could not remember memory question", exc_info=True)
+        return ChatResponse(reply=reply, session_id=session_id, user_id=user_id)
 
     decision = (TurnDecision("chat") if _is_only_greeting(request.message)
                 else await understand_turn(request.message, current_goal, recent_transcript))
@@ -373,9 +422,18 @@ async def chat(
                 logger.warning("Could not build fallback itinerary", exc_info=True)
 
         map_itineraries: list[dict] = []
+        # A request based only on memory has no time budget. Offer a clearly
+        # stated one-day *assumption* for a verified nearby starting plan;
+        # don't write that assumed duration back as something the user said.
+        assumed_day_trip = bool(decision.action == "plan" and travel_goal is not None
+                                and not travel_goal.duration and travel_goal.origin == "تهران"
+                                and not travel_goal.region and not travel_goal.destination_names
+                                and _is_memory_based_plan(request.message))
+        screening_goal = (travel_goal.model_copy(update={"duration": "یک روز"})
+                          if assumed_day_trip else travel_goal)
         checked = (await screen_short_trip(
-            travel_goal, deps.maps, result.new_messages(), reply_text, itinerary,
-            description_formatter=lambda rows: format_descriptions(rows, travel_goal),
+            screening_goal, deps.maps, result.new_messages(), reply_text, itinerary,
+            description_formatter=lambda rows: format_descriptions(rows, screening_goal),
             graph=graph_repo,
             map_itineraries=map_itineraries,
             avoid_names=previous_recommendations["names"],
@@ -402,6 +460,25 @@ async def chat(
                     itinerary = None
         elif itinerary is not None and decision.action == "plan":
             reply_text = ground_route_text(reply_text, itinerary)
+        if assumed_day_trip:
+            remembered = _previous_feature_concept(travel_goal.prior_insights)
+            if remembered:
+                intro = f"از درخواست سفر قبلی‌ات {remembered} را یادم هست؛ این بار هم از آن به عنوان سرنخ استفاده کردم. "
+            else:
+                saved_prefs = []
+                if memory_client is not None:
+                    try:
+                        saved_prefs = await memory_client.long_term.get_preferences_for(user_id)
+                    except Exception:
+                        logger.warning("Could not read preferences for planning introduction", exc_info=True)
+                if saved_prefs:
+                    intro = f"یادم هست که {saved_prefs[0].preference}. "
+                elif memory_client is None:
+                    intro = "الان حافظهٔ سفرهای قبلی‌ات در دسترسم نیست؛ بر اساس حدس درباره‌ات برنامه نمی‌ریزم. "
+                else:
+                    intro = "از سفرهای قبلی‌ات هنوز سلیقهٔ تأییدشده‌ای پیدا نکردم؛ این یک پیشنهاد اولیه است. "
+            reply_text = (intro + "چون مدت سفر را مشخص نکردی، برای شروع یک سفر یک‌روزه از تهران فرض کردم. "
+                          "اگر وقت بیشتری داری، می‌تونیم برنامه را تغییر بدیم.\n\n" + reply_text)
 
         shown_names: list[str] = []
         if decision.action == "plan" and travel_goal is not None:
