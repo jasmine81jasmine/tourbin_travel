@@ -251,6 +251,9 @@ async def test_new_session_plan_uses_only_unspecified_prior_insights(monkeypatch
     monkeypatch.setattr(chat, "get_trip_planner_agent", lambda: Agent())
     monkeypatch.setattr(chat, "understand_turn", plan)
     monkeypatch.setattr(chat, "screen_short_trip", no_screen)
+    async def no_travel_memory(*args):
+        return {"preferences": [], "mentions": []}
+    monkeypatch.setattr(chat, "extract_travel_memory", no_travel_memory)
 
     result = await chat.chat(ChatRequest(message=user_message), Response(), browser_user_id="user-a")
     assert result.user_id == "user-a" and result.itinerary is None

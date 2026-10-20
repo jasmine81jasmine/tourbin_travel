@@ -33,7 +33,9 @@ async def summarize_user_memory(memory, graph, user_id: str, session_id: str,
         read_failed = True
         logger.warning("Could not read user travel history for memory answer", exc_info=True)
     try:
-        preferences = await memory.long_term.get_preferences_for(user_id)
+        preferences = (await graph.get_durable_preferences(user_id)
+                       if hasattr(graph, "get_durable_preferences")
+                       else await memory.long_term.get_preferences_for(user_id))
     except Exception:
         read_failed = True
         logger.warning("Could not read durable preferences for memory answer", exc_info=True)
@@ -50,7 +52,8 @@ async def summarize_user_memory(memory, graph, user_id: str, session_id: str,
     lines = []
     if preferences:
         lines.append("- **سلیقه‌های ماندگاری که گفته‌ای:** "
-                     + "؛ ".join(str(p.preference) for p in preferences[:2]) + ".")
+                     + "؛ ".join(str(p["preference"] if isinstance(p, dict) else p.preference)
+                                   for p in preferences[:2]) + ".")
     if prior:
         description = _prior_request(prior)
         if description:

@@ -190,30 +190,35 @@ async def link_trace_recommendations(driver: AsyncDriver, trace_id: str, destina
         return record["linked"] if record else 0
 
 
-async def resolve_location_entities(driver: AsyncDriver) -> int:
-    """(:Entity {type:'LOCATION'})-[:REFERS_TO]->(:Destination) for
-    conversation entities whose name matches a real destination.
-
-    Restricted to type='LOCATION' (one of neo4j-agent-memory's POLE+O entity
-    types, set by its LLM extractor) specifically to avoid nonsense matches
-    -- e.g. a TripType-ish entity like "کمپ" substring-matching an unrelated
-    destination name. `WHERE NOT (e)-[:REFERS_TO]->(:Destination)` means
-    this only does work on newly-extracted entities each time it's called,
-    so it's cheap enough to run every turn rather than as a batch job.
-    Returns how many entities got a new link.
-    """
+async def resolve_location_entities(driver: AsyncDriver, message_id: str | None = None) -> int:
+    """Resolve extracted travel entities against actual destination ontology nodes."""
+    types = {"DESTINATION_MENTION": "Destination", "CITY_MENTION": "City",
+             "PROVINCE_MENTION": "Province", "TRIP_CATEGORY": "Category",
+             "TRIP_SEASON": "Season", "VEHICLE_MENTION": "Vehicle"}
+    linked = 0
     async with driver.session() as session:
-        result = await session.run(
-            """
-            MATCH (e:Entity {type: 'LOCATION'})
-            WHERE NOT (e)-[:REFERS_TO]->(:Destination)
-            MATCH (d:Destination)
-            WHERE toLower(d.name) = toLower(e.name)
-               OR toLower(d.name) CONTAINS toLower(e.name)
-               OR toLower(e.name) CONTAINS toLower(d.name)
-            MERGE (e)-[:REFERS_TO]->(d)
-            RETURN count(DISTINCT e) AS linked
-            """
-        )
-        record = await result.single()
-        return record["linked"] if record else 0
+        for entity_type, label in types.items():
+            # Only the destination type permits the common village/highland
+            # prefixes; do not substring-match arbitrary category/vehicle names.
+            match_name = (
+                "toLower(replace(replace(e.name, 'ي', 'ی'), 'ك', 'ک')) = "
+                "toLower(replace(replace(feature.name, 'ي', 'ی'), 'ك', 'ک'))"
+            )
+            if label == "Destination":
+                match_name = (
+                    f"({match_name} OR any(prefix IN ['ییلاق ', 'روستای ', 'روستا '] WHERE "
+                    "toLower(replace(replace(e.name, 'ي', 'ی'), 'ك', 'ک')) = prefix + "
+                    "toLower(replace(replace(feature.name, 'ي', 'ی'), 'ك', 'ک'))))"
+                )
+            result = await session.run(
+                f"""MATCH (m:Message {{id: $message_id}})-[:MENTIONS]->(e:Entity {{type: $type}})
+                    WHERE size(e.name) >= 2
+                    MATCH (feature:{label})
+                    WHERE {match_name}
+                    MERGE (e)-[:REFERS_TO]->(feature)
+                    RETURN count(DISTINCT e) AS linked""",
+                message_id=message_id, type=entity_type,
+            )
+            record = await result.single()
+            linked += record["linked"] if record else 0
+    return linked
