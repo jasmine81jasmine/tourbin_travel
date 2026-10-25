@@ -20,8 +20,6 @@ from src.agent.goals import (TravelGoal, insights_from_previous_goal, recall_rec
                              remember_recommended_routes, with_prior_insights)
 from src.agent.memory_summary import summarize_user_memory
 from src.agent.personalization import explain_selected_plans, write_explanation
-from src.agent.preference_context import effective_preferences
-from src.agent.preference_extraction import extract_travel_memory, is_travel_message
 from src.agent.tools import build_trip_map
 from src.agent.turns import TurnDecision, apply_goal_updates, understand_turn
 from src.api.schemas import ChatRequest, ChatResponse, Itinerary, SessionResponse
@@ -41,8 +39,7 @@ TRAVEL_TERMS = (
     "هواشناسی", "بارندگی", "رزرو", "بوم گردی", "رستوران", "غذا", "چمدان", "وسایل",
     "چی ببر", "چه ببر", "هزینه", "قیمت", "بودجه", "کجا بریم", "همراه", "همسر",
     "خانواده", "بچه", "کودک", "سالمند", "دوستام", "چند روز", "یک روز", "دو روز",
-    "سه روز", "آخر هفته", "خلوت", "آرام", "ماجراجو", "شلوغ", "جنگل", "کوهستان",
-    "travel", "trip", "tourism", "destination", "route", "hotel", "camping", "forest",
+    "سه روز", "آخر هفته", "travel", "trip", "tourism", "destination", "route", "hotel",
 )
 GREETING_TERMS = ("سلام", "درود", "صبح بخیر", "عصر بخیر", "شب بخیر", "خوبی", "hello", "hi")
 
@@ -115,7 +112,7 @@ async def _save_direct_exchange(memory_client, session_id: str, user_id: str,
     if memory_client is None:
         return
     try:
-        for role, content in (("assistant", reply),):
+        for role, content in (("user", question), ("assistant", reply)):
             await memory_client.short_term.add_message(
                 session_id=session_id, role=role, content=content,
                 metadata={"user_id": user_id}, user_identifier=user_id,
@@ -252,8 +249,7 @@ async def start_session(
     recent_features = {}
     history = {}
     try:
-        driver = memory_client._client._ensure_connected()  # type: ignore[attr-defined]
-        preferences = await TripGraphRepository(driver).get_durable_preferences(user_id)
+        preferences = await memory_client.long_term.get_preferences_for(user_id)
     except Exception:
         logger.warning("Could not load durable preferences for greeting", exc_info=True)
     try:
@@ -273,7 +269,7 @@ async def start_session(
         recent_features = insights_from_previous_goal(history["recent_goals"][0])
     remembered: list[str] = []
     if preferences:
-        remembered.append(f"یادم هست که {preferences[0]['preference']}")
+        remembered.append(f"یادم هست که {preferences[0].preference}")
     concept = _previous_feature_concept(recent_features)
     if concept:
         remembered.append(f"آخرین بار برای سفری با حال‌وهوای {concept} برنامه می‌خواستی")
@@ -362,10 +358,10 @@ async def chat(
         named_destination = None
         if graph_repo is not None:
             named_destination = await graph_repo.get_destination_details(request.message)
-        if (current_goal is None and not message_history
-                and (named_destination is None or not _explicitly_mentions_destination(
-                    request.message, str(named_destination.get("name", "")),
-                )) and not await is_travel_message(request.message)):
+        if current_goal is None and not message_history and (named_destination is None or not _explicitly_mentions_destination(
+            request.message,
+            str(named_destination.get("name", "")),
+        )):
             return ChatResponse(
                 reply=(
                     "من توربینم و تخصصم ساختن تجربه‌های خوب سفره 🌿 "
@@ -376,59 +372,6 @@ async def chat(
                 session_id=session_id,
                 user_id=user_id,
             )
-
-    # Persist the user's raw turn with LLM entity extraction before any of the
-    # direct-answer branches. Extraction failures must not lose the message or
-    # prevent a useful reply.
-    user_message = None
-    if memory_client is not None:
-        try:
-            user_message = await memory_client.short_term.add_message(
-                session_id=session_id, role="user", content=request.message,
-                metadata={"user_id": user_id}, user_identifier=user_id,
-                extract_entities=True, extract_relations=True,
-                generate_embedding=False, extraction_mode="auto",
-            )
-        except Exception:
-            logger.warning("Entity extraction failed; saving raw user message", exc_info=True)
-            try:
-                user_message = await memory_client.short_term.add_message(
-                    session_id=session_id, role="user", content=request.message,
-                    metadata={"user_id": user_id}, user_identifier=user_id,
-                    extract_entities=False, generate_embedding=False, extraction_mode="skip",
-                )
-            except Exception:
-                logger.warning("Could not save user message", exc_info=True)
-    if user_message is not None and driver is not None:
-        try:
-            await linking.resolve_location_entities(driver, str(user_message.id))
-        except Exception:
-            logger.warning("Could not resolve mentioned graph features", exc_info=True)
-    grounded_mentions: list[dict[str, str]] = []
-    if (graph_repo is not None and not _is_only_greeting(request.message)
-            and not _is_memory_question(request.message)):
-        try:
-            vocabulary = await graph_repo.list_preference_features()
-        except Exception:
-            logger.warning("Could not load destination feature vocabulary", exc_info=True)
-            vocabulary = {}
-        extracted_memory = await extract_travel_memory(request.message, vocabulary)
-        extracted = extracted_memory["preferences"]
-        grounded_mentions = extracted_memory["mentions"]
-        if user_message is not None and grounded_mentions:
-            try:
-                await graph_repo.link_grounded_mentions(
-                    user_id, str(user_message.id), grounded_mentions,
-                )
-            except Exception:
-                logger.warning("Could not link semantically grounded travel mentions", exc_info=True)
-        if extracted:
-            try:
-                await graph_repo.save_durable_preferences(
-                    user_id, extracted, str(user_message.id) if user_message else None,
-                )
-            except Exception:
-                logger.warning("Could not save durable travel preferences", exc_info=True)
 
     if _is_memory_question(request.message):
         reply = await summarize_user_memory(memory_client, graph_repo, user_id, session_id, current_goal)
@@ -508,15 +451,6 @@ async def chat(
         except Exception:
             logger.warning("Could not link session travel insights to user", exc_info=True)
 
-    durable_preferences = []
-    if graph_repo is not None:
-        try:
-            durable_preferences = effective_preferences(
-                await graph_repo.get_durable_preferences(user_id), travel_goal,
-            )
-        except Exception:
-            logger.warning("Could not load graph-linked travel preferences", exc_info=True)
-
     deps = AgentDeps.create(
         memory=memory_client,
         graph=graph_repo,
@@ -527,13 +461,35 @@ async def chat(
         turn_action=decision.action,
         maps=get_neshan_client(),
         previous_recommendations=previous_recommendations,
-        durable_preferences=durable_preferences,
-        grounded_mentions=grounded_mentions,
     )
 
     agent = get_trip_planner_agent()
 
     try:
+        # Store raw turns for native same-session history. Goal state now handles
+        # constraints, so expensive per-message LLM extraction/vectorization is
+        # intentionally skipped on the response path.
+        #
+        # `user_identifier=` is what writes (:User {identifier})-[:HAS_CONVERSATION]->
+        # (:Conversation) -- passing it here is what puts this conversation on the
+        # *same* User node that long_term.add_preference() and (after the fix
+        # below) the tourism-graph writes use. Previously this call omitted
+        # user_identifier entirely, so the conversation/message/entity subgraph
+        # had no User node at all, let alone the same one everything else used.
+        user_message = None
+        if memory_client is not None:
+            user_message = await memory_client.short_term.add_message(
+                session_id=session_id,
+                role="user",
+                content=request.message,
+                metadata={"user_id": user_id},
+                user_identifier=user_id,
+                extract_entities=False,
+                extract_relations=False,
+                generate_embedding=False,
+                extraction_mode="skip",
+            )
+
         result = await agent.run(request.message, deps=deps, message_history=message_history)
         reply_text = result.output if hasattr(result, "output") else str(result.data)
 
@@ -606,11 +562,11 @@ async def chat(
                 saved_prefs = []
                 if memory_client is not None:
                     try:
-                        saved_prefs = durable_preferences
+                        saved_prefs = await memory_client.long_term.get_preferences_for(user_id)
                     except Exception:
                         logger.warning("Could not read preferences for planning introduction", exc_info=True)
                 if saved_prefs:
-                    intro = f"یادم هست که {saved_prefs[0]['preference']}. "
+                    intro = f"یادم هست که {saved_prefs[0].preference}. "
                 elif memory_client is None:
                     intro = "الان حافظهٔ سفرهای قبلی‌ات در دسترسم نیست؛ بر اساس حدس درباره‌ات برنامه نمی‌ریزم. "
                 else:
@@ -713,6 +669,9 @@ async def chat(
                             len(destination_ids),
                             trace.id,
                         )
+                    entities_linked = await linking.resolve_location_entities(driver)
+                    if entities_linked:
+                        logger.info("Resolved %d LOCATION entities to destinations", entities_linked)
             except Exception:
                 logger.exception("Failed to record/link reasoning trace (non-fatal)")
 

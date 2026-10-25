@@ -86,10 +86,8 @@ def _context(goal: TravelGoal, preferences: list, liked: set[str]) -> dict[str, 
     active = set(goal.categories + goal.trip_types)
     active.update(label for label in ("طبیعت", "تاریخی", "کوهنوردی", "کویر", "کمپ") if label in latest)
     conflicting = {"طبیعت", "تاریخی", "کوهنوردی", "کویر", "کمپ"} - active
-    durable = [str(p["preference"] if isinstance(p, dict) else p.preference)[:120]
-               for p in preferences[:3]
-               if (p.get("polarity") != "avoid" if isinstance(p, dict)
-                   else str(p.category).lower() not in {"avoid", "dislike"})]
+    durable = [str(p.preference)[:120] for p in preferences[:3]
+               if str(p.category).lower() not in {"avoid", "dislike"}]
     if active:
         durable = [preference for preference in durable
                    if not any(term in preference for term in conflicting)]
@@ -162,13 +160,7 @@ async def explain_selected_plans(
         return ""
     preferences = []
     liked: set[str] = set()
-    if hasattr(graph, "get_durable_preferences"):
-        try:
-            from src.agent.preference_context import effective_preferences
-            preferences = effective_preferences(await graph.get_durable_preferences(user_id), goal)
-        except Exception:
-            logger.warning("Could not load preferences for plan explanation", exc_info=True)
-    elif memory_client is not None:
+    if memory_client is not None:
         try:
             preferences = await memory_client.long_term.get_preferences_for(user_id)
         except Exception:

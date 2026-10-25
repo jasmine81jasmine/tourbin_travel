@@ -193,9 +193,6 @@ async def test_memory_based_plan_replaces_far_draft_with_assumed_nearby_day_trip
     monkeypatch.setattr(chat, "get_trip_planner_agent", lambda: Agent())
     monkeypatch.setattr(chat, "understand_turn", plan)
     monkeypatch.setattr(chat, "screen_short_trip", screen)
-    async def no_travel_memory(*args):
-        return {"preferences": [], "mentions": []}
-    monkeypatch.setattr(chat, "extract_travel_memory", no_travel_memory)
 
     reply = await chat.chat(ChatRequest(message="با توجه به چیزایی ک از من میدونی یه برنامه سفر برام بریز"),
                             Response(), browser_user_id="returning-user")

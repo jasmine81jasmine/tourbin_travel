@@ -579,17 +579,8 @@ def get_trip_planner_agent() -> Agent[AgentDeps, str]:
             )
         parts.append(f"## Current turn action: {ctx.deps.turn_action}. "
                      "For answer/chat, address the latest message directly; do not generate a fresh itinerary.")
-        if ctx.deps.grounded_mentions:
-            parts.append(
-                "## Current message: semantically grounded travel concepts (hints, not proven place attributes)\n"
-                + json.dumps(ctx.deps.grounded_mentions, ensure_ascii=False)
-            )
 
-        if ctx.deps.graph is not None:
-            if ctx.deps.durable_preferences:
-                pref_lines = [f"- {p['category']}: {p['preference']}" for p in ctx.deps.durable_preferences]
-                parts.append("## Relevant durable preferences (only where current goal is silent)\n" + "\n".join(pref_lines))
-        elif ctx.deps.client is not None:
+        if ctx.deps.client is not None:
             try:
                 prefs = await ctx.deps.client.long_term.get_preferences_for(ctx.deps.user_id)
                 if prefs:

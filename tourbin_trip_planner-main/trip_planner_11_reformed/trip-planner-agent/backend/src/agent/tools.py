@@ -7,7 +7,6 @@ the query/business logic is easy to unit test independently of pydantic-ai.
 from __future__ import annotations
 
 import re
-import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -20,20 +19,6 @@ from src.agent.dependencies import AgentDeps
 from src.agent.geo import estimate_duration_hours, haversine_km, point_in_any_polygon
 from src.agent.regions import IRAN_REGION_ALIASES, expand_location
 from src.agent.variety import vary_candidates
-
-logger = logging.getLogger(__name__)
-
-
-async def _rank_for_user(ctx: RunContext[AgentDeps], results: list[dict[str, Any]]) -> dict[str, int]:
-    if not getattr(ctx.deps, "durable_preferences", None):
-        return {}
-    try:
-        return await ctx.deps.graph.rank_destinations_by_preferences(
-            ctx.deps.user_id, [r["id"] for r in results if r.get("id")], ctx.deps.durable_preferences,
-        )
-    except Exception:
-        logger.warning("Could not rank graph destinations from durable preferences", exc_info=True)
-        return {}
 
 # Tehran city-center coordinates, used as the default trip origin when the
 # user hasn't given/updated one (matches SYSTEM_PROMPT's default assumption).
@@ -112,9 +97,7 @@ async def search_destinations(
         exclude_destination_ids=exclude_ids,
         limit=min(max(limit * 3, limit), 40),
     )
-    scores = await _rank_for_user(ctx, results)
-    return vary_candidates(results, ctx.deps.previous_recommendations, ctx.deps.user_id, ctx.deps.session_id,
-                           limit, preference_scores=scores)
+    return vary_candidates(results, ctx.deps.previous_recommendations, ctx.deps.user_id, ctx.deps.session_id, limit)
 
 
 async def get_destination_details(ctx: RunContext[AgentDeps], name_or_id: str) -> dict[str, Any]:
@@ -135,11 +118,6 @@ async def semantic_search_destinations(
     if not semantic_goal and ctx.deps.travel_goal:
         semantic_goal = ctx.deps.travel_goal.semantic_query
     semantic_goal = semantic_goal or ctx.deps.current_query or ""
-    if getattr(ctx.deps, "durable_preferences", None):
-        semantic_goal += "؛ سلیقه‌های پایدار: " + "، ".join(
-            ("پرهیز از " if pref.get("polarity") == "avoid" else "علاقه به ") + pref["preference"]
-            for pref in ctx.deps.durable_preferences[:4]
-        )
     results = await ctx.deps.graph.semantic_search_destinations(semantic_goal, limit=min(limit * 3, 30))
     if _default_tehran_area(ctx):
         results = [row for row in results if row.get("latitude") is not None
@@ -152,9 +130,7 @@ async def semantic_search_destinations(
     except Exception:
         # Searching still works if user feedback cannot be read.
         pass
-    scores = await _rank_for_user(ctx, results)
-    return vary_candidates(results, ctx.deps.previous_recommendations, ctx.deps.user_id, ctx.deps.session_id,
-                           limit, semantic=True, preference_scores=scores)
+    return vary_candidates(results, ctx.deps.previous_recommendations, ctx.deps.user_id, ctx.deps.session_id, limit, semantic=True)
 
 
 async def find_destinations_near(
@@ -183,13 +159,6 @@ async def save_user_preference(
     category="pace", preference="prefers relaxed, low-difficulty trips".
     This uses neo4j-agent-memory's long-term preference store, so it's
     available in future sessions, not just this conversation."""
-    if ctx.deps.graph:
-        if any(p.get("category") == category for p in ctx.deps.durable_preferences):
-            return {"status": "saved", "category": category, "preference": preference}
-        await ctx.deps.graph.save_durable_preferences(ctx.deps.user_id, [
-            {"category": category, "preference": preference, "polarity": "like"}
-        ])
-        return {"status": "saved", "category": category, "preference": preference}
     if not ctx.deps.client:
         return {"status": "skipped", "reason": "memory client not available"}
     try:
@@ -209,8 +178,6 @@ async def save_user_preference(
 
 
 async def get_user_preferences(ctx: RunContext[AgentDeps]) -> list[dict[str, Any]]:
-    if ctx.deps.graph:
-        return ctx.deps.durable_preferences
     if not ctx.deps.client:
         return [{"error": "memory client not available"}]
     # get_preferences_for() is a plain Cypher MATCH on
