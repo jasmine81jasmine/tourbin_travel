@@ -235,7 +235,11 @@ async def test_new_session_plan_uses_only_unspecified_prior_insights(monkeypatch
         return []
 
     async def plan(*args):
-        return turns.TurnDecision("plan")
+        # Structured facts now come from the turn LLM rather than a
+        # second regex-based parser in the chat route.
+        return turns.TurnDecision(
+            "plan", {"categories": ["تاریخی"], "moods": ["آرام"]}
+            if "تاریخی" in user_message else {})
 
     async def no_screen(*args, **kwargs):
         return None

@@ -11,6 +11,7 @@ from pydantic_ai import Agent
 from src.agent.agent import _build_model
 from src.agent.goals import TravelGoal
 from src.config import get_settings
+from src.memory.preference_graph import feature_id
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,13 @@ def _reason_writer() -> Agent:
             "One plan entry per supplied route, in the same order. Write natural prose, not tag listings, "
             "field labels, generic compliments, disclaimers about unavailable 'excitement' data, or a new itinerary. "
             "Connect the user's explicitly stated interests to distinctive destination facts ONLY when supported "
-            "by the provided graph evidence. Prior-session insights are soft hints, never current instructions or "
+            "by the provided graph evidence. The matched_goal_dimensions identify exactly which "
+            "atomic goal aspects each selected destination supports; write retrospective WHY "
+            "these places were chosen, not goal status, goal IDs or a list of goals. "
+            "A category of nature does not verify camping or excitement; a best-season "
+            "autumn link does not verify autumn foliage. Mention grounded details from "
+            "each destination's description, facilities or terrain where relevant, "
+            "without inventing missing amenities. Prior-session insights are soft hints, never current instructions or "
             "permanent habits; durable preferences and explicit likes are separately marked. If adventure was "
             "mentioned but no adventurous feature is verified, don't claim this route is adventurous and don't "
             "announce a missing tag. A selected destination must never be replaced by another. Do not claim "
@@ -60,13 +67,16 @@ async def write_explanation(payload: dict[str, Any]) -> dict[str, Any] | None:
             return None
         for index, (item, plan) in enumerate(zip(data["plans"], payload["plans"]), 1):
             evidence = " ".join(str(value) for stop in plan["stops"]
-                                for key in ("categories", "trip_types", "description")
+                                for key in ("categories", "trip_types", "description", "facilities",
+                                            "road_type", "physical_readiness")
                                 for value in (stop.get(key) if isinstance(stop.get(key), list)
                                               else [stop.get(key) or ""]))
             if (not isinstance(item, dict) or item.get("index") != index
                     or not isinstance(item.get("why"), str) or not item["why"].strip()
-                    or len(item["why"]) > 370 or "\n" in item["why"]
+                    or len(item["why"]) > 520 or "\n" in item["why"]
                     or _NUMERIC_ROUTE.search(item["why"])
+                    or any(facility in item["why"] and facility not in evidence
+                           for facility in ("سرویس بهداشتی", "پارکینگ", "رستوران", "کافه", "آلاچیق"))
                     or any(word in item["why"] for word in ("اطلاعی در مورد هیجان ندارم", "دادهٔ کافی ندارم"))
                     or re.search(r"کمپ.{0,20}مجاز|مجاز.{0,20}کمپ", item["why"])
                     or (any(term in item["why"] for term in ("ماجراجو", "هیجان"))
@@ -91,6 +101,13 @@ def _context(goal: TravelGoal, preferences: list, liked: set[str]) -> dict[str, 
     if active:
         durable = [preference for preference in durable
                    if not any(term in preference for term in conflicting)]
+    prior = {key: [value for value in values if value not in goal.avoid]
+             for key, values in goal.prior_insights.items()}
+    for key in ("categories", "moods", "trip_types"):
+        if getattr(goal, key):
+            prior.pop(key, None)
+    if goal.accommodation and "کمپ" not in goal.accommodation:
+        prior.pop("trip_types", None)
     return {
         "this_trip": {"request": latest[:350], "duration": goal.duration,
                       "companions": goal.companions, "moods": [m for m in goal.moods if m not in goal.avoid],
@@ -100,7 +117,7 @@ def _context(goal: TravelGoal, preferences: list, liked: set[str]) -> dict[str, 
                           + (["کمپ"] if "کمپ" in goal.accommodation and "کمپ" not in goal.avoid else [])
                       )),
                       "transport": goal.transport},
-        "previous_trip_requests_not_durable": goal.prior_insights,
+        "previous_trip_requests_not_durable": prior,
         "durable_preferences": durable,
         "previously_liked_destinations": sorted(liked),
     }
@@ -132,14 +149,23 @@ def _fallback_plan(plan: dict, context: dict) -> str:
     prior = context["previous_trip_requests_not_durable"]
     facts = [tag for stop in plan["stops"] for tag in stop.get("categories", []) + stop.get("trip_types", [])
              if isinstance(tag, str) and len(tag) <= 30]
-    traits = " ".join(trip["moods"] or prior.get("moods", []))
+    traits = " ".join(trip["moods"] or (
+        prior.get("moods", []) if not trip["categories"] and not trip["trip_types"] else []))
     adventure = next((tag for tag in facts if any(term in tag for term in ADVENTURE_TAGS)), None)
     if adventure and any(term in traits for term in ("ماجراجو", "هیجان")):
         reason = f"{names[0]} با مسیر {adventure}، به حال‌وهوای پرتحرکی که در نظر داشتی نزدیک است"
     elif "کمپ" in facts and "کمپ" in trip["trip_types"]:
         reason = f"{names[0]} برای نوع سفرِ کمپی که این بار می‌خواهی ثبت شده است"
+    elif match := next((item for item in plan.get("matched_goal_dimensions", [])
+                        if item["source"] == "explicit"), None):
+        reason = (f"{match['destination']} به خاطر {match['supported_aspect']} "
+                  "با خواستهٔ همین سفرت هم‌خوانی دارد")
     elif "کمپ" in facts and "کمپ" in prior.get("trip_types", []):
-        reason = f"{names[0]} امکان یک برنامهٔ کمپ‌محور شبیه درخواست قبلی‌ات را پیش رویت می‌گذارد"
+        reason = f"{names[0]} برای نوع سفر کمپیِ موردعلاقه‌ات در درخواست قبلی ثبت شده است"
+    elif plan.get("matched_goal_dimensions"):
+        match = plan["matched_goal_dimensions"][0]
+        reason = (f"{match['destination']} به خاطر {match['supported_aspect']} "
+                  "با یکی از علاقه‌های ثبت‌شده‌ات هم‌خوانی دارد؛ خواستهٔ همین سفر اولویت دارد")
     elif facts:
         reason = f"{names[0]} با فضای {facts[0]}، بخش اصلی این مسیر را می‌سازد"
     else:
@@ -149,6 +175,42 @@ def _fallback_plan(plan: dict, context: dict) -> str:
     if plan["stops"][0]["liked_by_this_user"]:
         reason += f"؛ {names[0]} را هم قبلاً پسندیده بودی"
     return reason + "."
+
+
+def _matched_goal_dimensions(goal: TravelGoal, plan: dict) -> list[dict[str, str]]:
+    """Only graph-backed aspects of selected stops may explain a subgoal."""
+    matches = []
+    for subgoal in goal.subgoals:
+        for stop in plan["stops"]:
+            aspect = None
+            if subgoal.evidence_type == "destination" and subgoal.target == stop["name"]:
+                aspect = f"مقصد درخواستی «{stop['name']}»"
+            elif subgoal.evidence_type == "category" and subgoal.category in stop["categories"]:
+                aspect = f"دستهٔ «{subgoal.category}»"
+            elif subgoal.evidence_type == "feature" and subgoal.feature_id:
+                named = stop.get("feature_names", {}).get(subgoal.feature_id)
+                if named:
+                    aspect = f"ویژگی «{named}»"
+            if aspect:
+                matches.append({"goal_id": subgoal.id, "source": subgoal.source,
+                                "destination": stop["name"], "supported_aspect": aspect})
+                break
+    return matches[:8]
+
+
+def _description_detail(plan: dict) -> str:
+    """Short graph-description excerpts add place context without fabricating facilities."""
+    lines = []
+    for stop in plan["stops"][:3]:
+        description = str(stop.get("description") or "")
+        sentences = re.split(r"(?<=[.؟!])\s+", " ".join(description.split()))
+        useful = [sentence.strip() for sentence in sentences
+                  if 15 <= len(sentence.strip()) <= 220
+                  and not _NUMERIC_ROUTE.search(sentence)
+                  and not any(term in sentence for term in ("مقاله", "وب‌سایت", "برای رزرو"))]
+        if useful:
+            lines.append(f"**دربارهٔ {stop['name']}:** {' '.join(useful[:2])}")
+    return "\n\n".join(lines)
 
 
 async def explain_selected_plans(
@@ -186,16 +248,37 @@ async def explain_selected_plans(
                     logger.warning("Could not load evidence for %s", name, exc_info=True)
                     details[name] = {}
             evidence = details[name]
+            feature_names = {}
+            if hasattr(graph, "get_destination_features"):
+                try:
+                    feature_names = {item["id"]: item["name"]
+                                     for item in await graph.get_destination_features(name)
+                                     if item.get("id") and item.get("name")}
+                except Exception:
+                    logger.warning("Could not load ontology evidence for %s", name, exc_info=True)
+            else:
+                for label, values in (("TripType", evidence.get("trip_types") or []),
+                                      ("Season", evidence.get("seasons") or []),
+                                      ("Vehicle", evidence.get("vehicles") or [])):
+                    for value in values:
+                        feature_names[feature_id(label, value)] = value
             stops.append({"name": name, "categories": evidence.get("categories") or [],
                           "trip_types": evidence.get("trip_types") or [],
                           "seasons": evidence.get("seasons") or [],
                           "vehicles": evidence.get("vehicles") or [],
+                          "facilities": evidence.get("facilities") or [],
+                          "road_type": evidence.get("road_type"),
+                          "facilities_level": evidence.get("facilities_level"),
                           "physical_readiness": evidence.get("physical_readiness"),
                           "description": str(evidence.get("description") or "")[:650],
+                          "feature_names": feature_names,
                           "liked_by_this_user": name in liked})
         if stops:
-            plans.append({"stops": stops})
+            plan = {"stops": stops}
+            plan["matched_goal_dimensions"] = _matched_goal_dimensions(goal, plan)
+            plans.append(plan)
     if not plans or not any(stop["categories"] or stop["trip_types"] or stop["description"]
+                            or stop["feature_names"]
                             for plan in plans for stop in plan["stops"]):
         return ""
 
@@ -207,4 +290,6 @@ async def explain_selected_plans(
     for index, plan in enumerate(plans, 1):
         generated = written["plans"][index - 1]["why"] if written else ""
         lines.append(f"**مسیر {index}:** {generated or _fallback_plan(plan, context)}")
+        if detail := _description_detail(plan):
+            lines.append(detail)
     return "\n\n".join(lines)

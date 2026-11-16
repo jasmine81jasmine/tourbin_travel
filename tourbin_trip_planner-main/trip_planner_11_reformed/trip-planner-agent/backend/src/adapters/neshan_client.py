@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
+import asyncio
 from functools import lru_cache
 from typing import Any
 
@@ -79,16 +80,31 @@ class NeshanClient:
         if self._log_api_key_once:
             self._log_api_key_once = False
             logger.warning("Neshan one-shot diagnostic: %s Api-Key=%s", path, headers["Api-Key"])
-        try:
-            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-                resp = await client.get(url, params=params, headers=headers)
-            if resp.status_code != 200:
-                logger.warning("Neshan %s returned %s: %s", path, resp.status_code, resp.text[:300])
+        # Neshan's gateway sometimes answers 503 for an otherwise valid
+        # direction request. Retry only transient failures; invalid keys and
+        # bad requests must not cause repeated calls or hide their diagnostics.
+        attempts = 3 if path == "/v4/direction/no-traffic" else 1
+        for attempt in range(attempts):
+            try:
+                async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+                    resp = await client.get(url, params=params, headers=headers)
+                if resp.status_code == 200:
+                    return resp.json()
+                if resp.status_code not in {429, 502, 503, 504}:
+                    logger.warning("Neshan %s returned %s: %s", path, resp.status_code, resp.text[:300])
+                    return None
+                logger.warning("Neshan %s transient HTTP %s (attempt %s/%s)",
+                               path, resp.status_code, attempt + 1, attempts)
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
+                logger.warning("Neshan %s temporary network failure: %s (attempt %s/%s)",
+                               path, type(exc).__name__, attempt + 1, attempts,
+                               exc_info=attempt + 1 == attempts)
+            except Exception:
+                logger.warning("Neshan %s request failed", path, exc_info=True)
                 return None
-            return resp.json()
-        except Exception:
-            logger.warning("Neshan %s request failed", path, exc_info=True)
-            return None
+            if attempt + 1 < attempts:
+                await asyncio.sleep(0.4 * (attempt + 1))
+        return None
 
     # ------------------------------------------------------------------
     # Geocoding: text address/place name -> lat/lon. Only called when a

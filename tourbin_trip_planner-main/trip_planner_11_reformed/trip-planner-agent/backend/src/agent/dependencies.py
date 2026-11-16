@@ -1,5 +1,6 @@
 """Agent dependencies extending MemoryDependency with the trip graph repo."""
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -27,6 +28,10 @@ class AgentDeps(MemoryDependency):
     # agent.run() to attach map-ready {name, latitude, longitude, order}
     # data to the JSON response, alongside the normal text reply.
     itinerary_result: dict[str, Any] | None = field(default=None)
+    observed_tools: list[str] = field(default_factory=list)
+    observation_ids: list[str] = field(default_factory=list)
+    progress_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    semantic_candidates: list[dict[str, Any]] | None = None
 
     @classmethod
     def create(

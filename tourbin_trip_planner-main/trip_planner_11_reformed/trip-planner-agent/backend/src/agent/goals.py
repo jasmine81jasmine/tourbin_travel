@@ -7,6 +7,72 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class PlanningSubgoal(BaseModel):
+    id: str
+    name: str
+    priority: Literal["high", "medium", "low"] = "medium"
+    source: Literal["explicit", "preference", "assumption"] = "assumption"
+    # Only these evidence types may be marked covered by the evaluator.
+    evidence_type: Literal["destination", "category", "feature", "route", "unverified"] = "unverified"
+    target: str | None = None
+    category: str | None = None
+    feature_id: str | None = None
+    minimum: int = Field(default=1, ge=1, le=10)
+    related_features: list[str] = Field(default_factory=list)
+    parent_id: str | None = None
+
+
+class PlanningConstraint(BaseModel):
+    description: str
+    kind: Literal["hard", "soft"] = "soft"
+    source: Literal["explicit", "preference", "assumption"] = "assumption"
+
+
+class GoalCoverage(BaseModel):
+    goal_id: str
+    status: Literal["pending", "partial", "satisfied", "blocked"]
+    activities: list[str] = Field(default_factory=list)
+    reason: str = ""
+
+
+class PendingOffer(BaseModel):
+    """An assistant proposal awaiting a response, not yet a user constraint."""
+    action: Literal["plan", "choose"]
+    destination_names: list[str] = Field(default_factory=list)
+    # Preserve the offered order, including names not found in the graph.
+    # Unverified names must never be promoted to a selected trip destination.
+    offered_names: list[str] = Field(default_factory=list)
+    unverified_names: list[str] = Field(default_factory=list)
+    incomplete: bool = False
+    # "plan" visits all named destinations together; "choose" presents alternatives.
+    source_reply: str = ""
+
+
+class ConversationalGoal(BaseModel):
+    """User-authored dialogue commitment; separate from ontology planning subgoals."""
+    id: str
+    clause: str
+    summary: str
+    kind: Literal["question", "request", "offer", "suggestion"]
+    scope: Literal["trip", "turn"] = "turn"
+    dimensions: list[str] = Field(default_factory=list)
+    status: Literal["active", "addressed", "superseded", "archived"] = "active"
+    parents: list[str] = Field(default_factory=list)
+
+
+class GoalMergeEvent(BaseModel):
+    operation: Literal["keep", "replace", "combine", "add"]
+    old_ids: list[str] = Field(default_factory=list)
+    new_id: str | None = None
+
+
+class ConversationalEvaluation(BaseModel):
+    goal_id: str
+    category: Literal["confirm", "contradict", "ignore"]
+    explanation: str = ""
+    examples: list[str] = Field(default_factory=list)
+
+
 class TravelGoal(BaseModel):
     """The current truth about the trip being planned in one chat session."""
 
@@ -30,6 +96,22 @@ class TravelGoal(BaseModel):
     avoid: list[str] = Field(default_factory=list)
     constraints: list[str] = Field(default_factory=list)
     unresolved_questions: list[str] = Field(default_factory=list)
+    subgoals: list[PlanningSubgoal] = Field(default_factory=list)
+    planning_constraints: list[PlanningConstraint] = Field(default_factory=list)
+    planning_steps: list[str] = Field(default_factory=list)
+    goal_coverage: list[GoalCoverage] = Field(default_factory=list)
+    last_observation_tool: str | None = None
+    # Audit metadata for the snapshot being written, not a claim of goal coverage.
+    turn_id: str | None = None
+    revision_cause: str | None = None
+    observation_id: str | None = None
+    observation_source: str | None = None
+    observation_summary: list[str] = Field(default_factory=list)
+    # The most recent turn is recorded even if it only requested information.
+    last_user_request: str = ""
+    last_turn_action: str = ""
+    # Final map-ready routes from the most recent plan, not searched candidates.
+    last_itineraries: list[dict] = Field(default_factory=list)
     # Soft context from the latest *other* session, never an explicit request
     # for this trip and never saved as a new REQUESTED_FOR_TRIP link.
     prior_insights: dict[str, list[str]] = Field(default_factory=dict)
@@ -38,6 +120,13 @@ class TravelGoal(BaseModel):
     recommended_routes: list[list[str]] = Field(default_factory=list)
     # The alternatives shown in the last planning reply, for "why these?"
     last_proposed_routes: list[list[str]] = Field(default_factory=list)
+    pending_offer: PendingOffer | None = None
+    # OnGoal-style infer → merge → evaluate, scoped to this session. Historical
+    # snapshots are immutable Neo4j TravelGoal revisions, not user preferences.
+    conversational_goals: list[ConversationalGoal] = Field(default_factory=list)
+    goal_merge_events: list[GoalMergeEvent] = Field(default_factory=list)
+    conversational_evaluations: list[ConversationalEvaluation] = Field(default_factory=list)
+    next_conversational_goal: int = 1
     semantic_query: str = ""
     status: Literal["collecting", "planning", "proposed", "confirmed"] = "collecting"
     revision: int = 0

@@ -99,3 +99,79 @@ async def test_map_endpoint_does_not_return_a_partial_route(monkeypatch):
         response = await client.post("/api/map/route", json=payload)
         assert response.status_code == 502
         assert "legs" not in response.json()
+
+
+@pytest.mark.asyncio
+async def test_neshan_direction_retries_transient_503_not_invalid_key(monkeypatch):
+    from src.adapters import neshan_client
+    calls = []
+    delays = []
+
+    class FakeClient:
+        def __init__(self, timeout):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def get(self, url, **kwargs):
+            calls.append(url)
+            return httpx.Response(503 if len(calls) < 3 else 200,
+                                  json={"routes": [{"legs": []}]})
+
+    async def no_sleep(delay):
+        delays.append(delay)
+
+    monkeypatch.setattr(neshan_client.httpx, "AsyncClient", FakeClient)
+    monkeypatch.setattr(neshan_client.asyncio, "sleep", no_sleep)
+    client = NeshanClient("test-key")
+    assert await client._get("/v4/direction/no-traffic", {}) == {"routes": [{"legs": []}]}
+    assert len(calls) == 3
+    assert delays == [0.4, 0.8]
+
+    calls.clear()
+    class BadKey(FakeClient):
+        async def get(self, url, **kwargs):
+            calls.append(url)
+            return httpx.Response(403, text="invalid key")
+
+    monkeypatch.setattr(neshan_client.httpx, "AsyncClient", BadKey)
+    assert await client._get("/v4/direction/no-traffic", {}) is None
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_neshan_connection_timeout_retries_without_first_attempt_traceback(monkeypatch, caplog):
+    from src.adapters import neshan_client
+    calls = []
+
+    class FakeClient:
+        def __init__(self, timeout):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def get(self, url, **kwargs):
+            calls.append(url)
+            if len(calls) < 3:
+                raise httpx.ConnectTimeout("connection timed out")
+            return httpx.Response(200, json={"routes": [{"legs": []}]})
+
+    async def no_sleep(delay):
+        pass
+
+    monkeypatch.setattr(neshan_client.httpx, "AsyncClient", FakeClient)
+    monkeypatch.setattr(neshan_client.asyncio, "sleep", no_sleep)
+    client = NeshanClient("test-key")
+    assert await client._get("/v4/direction/no-traffic", {}) == {"routes": [{"legs": []}]}
+    assert len(calls) == 3
+    warnings = [r for r in caplog.records if "temporary network failure" in r.message]
+    assert len(warnings) == 2
+    assert all(not r.exc_info for r in warnings)

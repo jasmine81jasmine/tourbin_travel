@@ -45,6 +45,43 @@ class TripGraphRepository:
             result = await session.run(query, **params)
             return [r.data() async for r in result]
 
+    async def ensure_goal_revisions(self) -> None:
+        """Migrate the old session-unique goal schema without deleting old goals."""
+        await self._write(
+            "MATCH (g:TravelGoal) WHERE g.id IS NULL SET g.id = randomUUID()")
+        await self._write(
+            "CREATE CONSTRAINT travel_goal_id IF NOT EXISTS "
+            "FOR (g:TravelGoal) REQUIRE g.id IS UNIQUE")
+        async with self._driver.session() as session:
+            result = await session.run(
+                "SHOW CONSTRAINTS YIELD name, labelsOrTypes, properties "
+                "WHERE name = 'travel_goal_session' "
+                "RETURN labelsOrTypes, properties")
+            row = await result.single()
+            if row and row["labelsOrTypes"] == ["TravelGoal"] and row["properties"] == ["session_id"]:
+                await (await session.run("DROP CONSTRAINT travel_goal_session IF EXISTS")).consume()
+        await self._write(
+            "CREATE INDEX travel_goal_session_lookup IF NOT EXISTS "
+            "FOR (g:TravelGoal) ON (g.session_id)")
+        await self._write(
+            "CREATE CONSTRAINT goal_state_id IF NOT EXISTS "
+            "FOR (s:GoalState) REQUIRE s.id IS UNIQUE")
+        await self._write(
+            "CREATE INDEX goal_state_session_lookup IF NOT EXISTS "
+            "FOR (s:GoalState) ON (s.session_id, s.goal_id)")
+        await self._write(
+            "CREATE CONSTRAINT conversational_goal_state_id IF NOT EXISTS "
+            "FOR (s:ConversationalGoalState) REQUIRE s.id IS UNIQUE")
+        await self._write(
+            "CREATE INDEX conversational_goal_state_session_lookup IF NOT EXISTS "
+            "FOR (s:ConversationalGoalState) ON (s.session_id, s.goal_id)")
+        await self._write(
+            "CREATE CONSTRAINT goal_revision_event_id IF NOT EXISTS "
+            "FOR (e:GoalRevisionEvent) REQUIRE e.id IS UNIQUE")
+        await self._write(
+            "CREATE INDEX goal_revision_event_turn IF NOT EXISTS "
+            "FOR (e:GoalRevisionEvent) ON (e.session_id, e.turn_id)")
+
     @staticmethod
     def _destination_lookup_keys(value: str) -> list[str]:
         """Build Persian-normalized aliases for a destination name."""
@@ -71,6 +108,13 @@ class TripGraphRepository:
     # ------------------------------------------------------------------
     # Search & recommendation
     # ------------------------------------------------------------------
+
+    async def get_vehicle_names(self) -> list[str]:
+        """Controlled vehicle vocabulary backed by real destination edges."""
+        rows = await self._read(
+            "MATCH (:Destination)-[:ACCESSIBLE_BY]->(v:Vehicle) "
+            "RETURN DISTINCT v.name AS name")
+        return [row["name"] for row in rows if isinstance(row.get("name"), str)]
 
     async def search_destinations(
         self,
@@ -517,6 +561,68 @@ class TripGraphRepository:
         )
         return rows[0]["destination"] if rows else None
 
+    async def search_destinations_by_features(
+        self, feature_ids: list[str], location: list[str] | None = None,
+        match_all: bool = True, limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        """Search only observed Destination -> ontology edges; no inferred features."""
+        from src.memory.preference_graph import DESTINATION_FEATURE_RELATIONS
+
+        ids = list(dict.fromkeys(feature_ids))[:6]
+        if not ids or limit <= 0:
+            return []
+        return await self._read(
+            """
+            MATCH (d:Destination)-[r]->(f)
+            WHERE f.preference_id IN $feature_ids
+              AND type(r) + ':' + head(labels(f)) IN $allowed_pairs
+            WITH d, collect(DISTINCT f.preference_id) AS matched_feature_ids
+            WHERE NOT $match_all OR size(matched_feature_ids) = size($feature_ids)
+            OPTIONAL MATCH (d)-[:LOCATED_IN]->(city:City)
+            OPTIONAL MATCH (city)-[:PART_OF]->(prov:Province)
+            OPTIONAL MATCH (d)-[:LOCATED_IN]->(direct_prov:Province)
+            WITH d, matched_feature_ids, collect(DISTINCT city.name) AS cities,
+                 collect(DISTINCT prov.name) + collect(DISTINCT direct_prov.name) AS provinces
+            WHERE $location IS NULL OR any(loc IN $location WHERE
+                any(place IN cities + provinces WHERE
+                    toLower(toString(place)) CONTAINS toLower(loc)
+                    OR toLower(loc) CONTAINS toLower(toString(place))))
+            RETURN d.id AS id, d.name AS name, d.description AS description,
+                   head(cities) AS city, head(provinces) AS province,
+                   matched_feature_ids, d.location.latitude AS latitude,
+                   d.location.longitude AS longitude, d:OsmFeature AS source_is_osm
+            ORDER BY size(matched_feature_ids) DESC,
+                     CASE WHEN d:OsmFeature THEN 1 ELSE 0 END,
+                     coalesce(d.user_rating_score, 0) DESC
+            LIMIT $limit
+            """,
+            feature_ids=ids,
+            allowed_pairs=[f"{relation}:{label}" for label, relation
+                           in DESTINATION_FEATURE_RELATIONS.items()],
+            location=location, match_all=match_all, limit=min(limit, 20),
+        )
+
+    async def get_destination_features(self, name_or_id: str) -> list[dict[str, Any]]:
+        """Return source-backed feature edges for one resolved destination."""
+        from src.memory.preference_graph import DESTINATION_FEATURE_RELATIONS
+
+        details = await self.get_destination_details(name_or_id)
+        if not details or not details.get("id"):
+            return []
+        return await self._read(
+            """
+            MATCH (d:Destination {id:$id})-[r]->(f)
+            WHERE f.preference_id IS NOT NULL
+              AND type(r) + ':' + head(labels(f)) IN $allowed_pairs
+            RETURN DISTINCT f.preference_id AS id, f.name AS name,
+                   head(labels(f)) AS label, type(r) AS relationship
+            ORDER BY label, name
+            """,
+            id=details["id"],
+            allowed_pairs=[f"{relation}:{label}" for label, relation
+                           in DESTINATION_FEATURE_RELATIONS.items()],
+        )
+
     async def find_destinations_mentioned_in_text(self, text: str, limit: int = 6) -> list[str]:
         """Recover named curated suggestions even when the agent skipped search tools.
 
@@ -653,6 +759,26 @@ class TripGraphRepository:
     # User / trip memory (this is what makes the graph "learn")
     # ------------------------------------------------------------------
 
+    async def score_candidates_for_user(
+        self, user_id: str, candidates: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Soft-rank only already eligible destinations by shared feature nodes."""
+        ids = [row["id"] for row in candidates if row.get("id")]
+        if not ids:
+            return candidates
+        rows = await self._read(
+            """
+            MATCH (u:User {identifier: $user_id})-[r:HAS_PREFERENCE]->(feature)
+                  <-[]-(d:Destination)
+            WHERE d.id IN $ids AND feature.preference_id IS NOT NULL
+            RETURN d.id AS id, sum(coalesce(r.score, 0)) AS score
+            """,
+            user_id=user_id, ids=ids,
+        )
+        scores = {row["id"]: row["score"] for row in rows}
+        return [{**row, "preference_score": scores.get(row.get("id"), 0)}
+                for row in candidates]
+
     async def get_avoided_destination_ids(self, user_id: str) -> list[str]:
         """Exclude explicitly disliked and visited places from fresh searches."""
         rows = await self._read(
@@ -706,6 +832,7 @@ class TripGraphRepository:
             CALL (u) {
                 OPTIONAL MATCH (u)-[:HAS_GOAL]->(goal:TravelGoal)
                 WHERE goal.session_id <> $exclude_session_id
+                  AND NOT (goal)-[:REVISED_TO]->(:TravelGoal)
                 WITH goal ORDER BY goal.updated_at DESC
                 RETURN collect(goal.state_json)[0..5] AS recent_goals
             }
@@ -747,9 +874,10 @@ class TripGraphRepository:
     async def get_travel_goal(self, session_id: str, user_id: str) -> dict[str, Any] | None:
         rows = await self._read(
             """
-            MATCH (u:User {identifier: $user_id})-[:HAS_GOAL]->(g:TravelGoal {session_id: $session_id})
-            RETURN g.state_json AS state_json, g.revision AS revision, g.updated_at AS updated_at
-            LIMIT 1
+             MATCH (u:User {identifier: $user_id})-[:HAS_GOAL]->(g:TravelGoal {session_id: $session_id})
+             RETURN g.state_json AS state_json, g.revision AS revision, g.updated_at AS updated_at
+             ORDER BY g.revision DESC
+             LIMIT 1
             """,
             session_id=session_id,
             user_id=user_id,
@@ -770,24 +898,209 @@ class TripGraphRepository:
         session_id: str,
         user_id: str,
         state: dict[str, Any],
-    ) -> None:
+    ) -> int:
+        async def write_revision(tx):
+            # A write to the owning User serializes concurrent revisions before
+            # reading the latest goal. Never mutate an earlier goal node.
+            result = await tx.run(
+                "MERGE (u:User {identifier:$user_id}) "
+                "ON CREATE SET u.id=randomUUID(), u.created_at=datetime() "
+                "WITH u WHERE NOT EXISTS {"
+                " MATCH (other:User)-[:OWNS_CHAT]->(:ChatSession {session_id:$session_id}) "
+                " WHERE other.identifier <> $user_id} "
+                "SET u.goal_write_counter=coalesce(u.goal_write_counter,0)+1 "
+                "RETURN u.identifier AS identifier",
+                user_id=user_id, session_id=session_id)
+            if await result.single() is None:
+                raise ValueError("Session belongs to another account")
+            result = await tx.run(
+                "MATCH (u:User {identifier:$user_id})-[:HAS_GOAL]->"
+                "(g:TravelGoal {session_id:$session_id}) "
+                "RETURN g.id AS id, g.revision AS revision "
+                "ORDER BY g.revision DESC LIMIT 1",
+                user_id=user_id, session_id=session_id)
+            previous = await result.single()
+            revision = (previous["revision"] or 0) + 1 if previous else 1
+            snapshot = {**state, "revision": revision}
+            result = await tx.run(
+                "MATCH (u:User {identifier:$user_id}) "
+                "CREATE (g:TravelGoal {id:randomUUID(), session_id:$session_id, "
+                "user_identifier:$user_id, state_json:$snapshot, revision:$revision, "
+                "turn_id:$turn_id, revision_cause:$cause, "
+                "created_at:datetime(), updated_at:datetime()}) "
+                "CREATE (u)-[:HAS_GOAL]->(g) "
+                "WITH u,g "
+                "OPTIONAL MATCH (u)-[:OWNS_CHAT]->(chat:ChatSession {session_id:$session_id}) "
+                "FOREACH (_ IN CASE WHEN chat IS NULL THEN [] ELSE [1] END | "
+                "CREATE (chat)-[:HAS_GOAL_REVISION]->(g)) "
+                "WITH g "
+                "OPTIONAL MATCH (previous:TravelGoal {id:$previous_id}) "
+                "FOREACH (_ IN CASE WHEN previous IS NULL THEN [] ELSE [1] END | "
+                "CREATE (previous)-[:REVISED_TO]->(g))",
+                user_id=user_id, session_id=session_id,
+                snapshot=json.dumps(snapshot, ensure_ascii=False),
+                turn_id=state.get("turn_id"), cause=state.get("revision_cause"),
+                revision=revision, previous_id=previous["id"] if previous else None)
+            await result.consume()
+            result = await tx.run(
+                "MATCH (g:TravelGoal {session_id:$session_id, "
+                "user_identifier:$user_id, revision:$revision}) "
+                "CREATE (event:GoalRevisionEvent {id:randomUUID(), "
+                "session_id:$session_id, turn_id:$turn_id, revision:$revision, "
+                "cause:$cause, observation_id:$observation_id, "
+                "observation_source:$observation_source, "
+                "tool:$tool, candidate_names:$names, created_at:datetime()}) "
+                "CREATE (event)-[:CREATED_REVISION]->(g)",
+                session_id=session_id, user_id=user_id, revision=revision,
+                turn_id=state.get("turn_id"),
+                cause=state.get("revision_cause") or "unclassified",
+                observation_id=state.get("observation_id")
+                if state.get("revision_cause") == "tool_observation" else None,
+                observation_source=state.get("observation_source")
+                if state.get("revision_cause") == "tool_observation" else None,
+                tool=state.get("last_observation_tool")
+                if state.get("revision_cause") == "tool_observation" else None,
+                names=state.get("observation_summary", [])
+                if state.get("revision_cause") == "tool_observation" else [])
+            await result.consume()
+            # Each goal revision owns separate, immutable per-subgoal nodes.
+            # Link successive snapshots by stable subgoal ID, never by name.
+            # This stays in the same transaction as the parent TravelGoal.
+            subgoals = snapshot.get("subgoals") or []
+            coverage = {item["goal_id"]: item for item in snapshot.get("goal_coverage") or []}
+            if subgoals:
+                result = await tx.run(
+                    "MATCH (g:TravelGoal {session_id:$session_id, "
+                    "user_identifier:$user_id, revision:$revision}) "
+                    "UNWIND $subgoals AS item "
+                    "CREATE (s:GoalState {id:randomUUID(), session_id:$session_id, "
+                    "user_identifier:$user_id, goal_id:item.id, name:item.name, "
+                    "parent_id:item.parent_id, source:item.source, priority:item.priority, "
+                    "evidence_type:item.evidence_type, feature_id:item.feature_id, "
+                    "status:item.status, "
+                    "reason:item.reason, evidence_json:item.evidence_json, "
+                    "related_features:item.related_features, revision:$revision, "
+                    "observed_tool:$tool, created_at:datetime()}) "
+                    "CREATE (g)-[:HAS_GOAL_STATE]->(s) "
+                    "WITH s, item "
+                    "OPTIONAL MATCH (previous:TravelGoal {id:$previous_id})"
+                    "-[:HAS_GOAL_STATE]->(old:GoalState {goal_id:item.id}) "
+                    "FOREACH (_ IN CASE WHEN old IS NULL THEN [] ELSE [1] END | "
+                    "CREATE (old)-[:REVISED_TO]->(s))",
+                    user_id=user_id, session_id=session_id, revision=revision,
+                    previous_id=previous["id"] if previous else None,
+                    tool=snapshot.get("last_observation_tool"),
+                    subgoals=[{**item,
+                               "status": coverage.get(item["id"], {}).get("status", "pending"),
+                               "reason": coverage.get(item["id"], {}).get("reason", ""),
+                               "evidence_json": json.dumps(
+                                   coverage.get(item["id"], {}).get("activities", []),
+                                   ensure_ascii=False)}
+                              for item in subgoals])
+                await result.consume()
+                result = await tx.run(
+                    "MATCH (g:TravelGoal {session_id:$session_id, "
+                    "user_identifier:$user_id, revision:$revision})"
+                    "-[:HAS_GOAL_STATE]->(s:GoalState) "
+                    "UNWIND $subgoals AS item "
+                    "WITH s, item WHERE s.goal_id = item.id "
+                    "UNWIND item.feature_ids AS feature_id "
+                    "MATCH (f {preference_id:feature_id}) "
+                    "MERGE (s)-[:USES_FEATURE]->(f)",
+                    user_id=user_id, session_id=session_id, revision=revision,
+                    subgoals=[{"id": item["id"], "feature_ids": list(dict.fromkeys(
+                        (item.get("related_features") or []) +
+                        ([item["feature_id"]] if item.get("feature_id") else [])))}
+                        for item in subgoals])
+                await result.consume()
+                result = await tx.run(
+                    "MATCH (g:TravelGoal {session_id:$session_id, "
+                    "user_identifier:$user_id, revision:$revision})"
+                    "-[:HAS_GOAL_STATE]->(child:GoalState) "
+                    "WHERE child.parent_id IS NOT NULL "
+                    "MATCH (g)-[:HAS_GOAL_STATE]->(parent:GoalState "
+                    "{goal_id:child.parent_id}) "
+                    "CREATE (parent)-[:DECOMPOSED_INTO]->(child)",
+                    user_id=user_id, session_id=session_id, revision=revision)
+                await result.consume()
+            # Every immutable goal revision needs its own dialogue states,
+            # including tool observations: lineage to the immediately prior
+            # revision must not break when a planner tool saves in between.
+            dialogue_goals = snapshot.get("conversational_goals") or []
+            if dialogue_goals:
+                evaluations = {item["goal_id"]: item for item in
+                               snapshot.get("conversational_evaluations") or []}
+                operations = {item["new_id"]: item["operation"] for item in
+                              snapshot.get("goal_merge_events") or [] if item.get("new_id")}
+                result = await tx.run(
+                    "MATCH (g:TravelGoal {session_id:$session_id, "
+                    "user_identifier:$user_id, revision:$revision}) "
+                    "UNWIND $items AS item "
+                    "CREATE (s:ConversationalGoalState {"
+                    "id:randomUUID(), session_id:$session_id, "
+                    "user_identifier:$user_id, goal_id:item.id, "
+                    "clause:item.clause, summary:item.summary, kind:item.kind, "
+                    "scope:item.scope, status:item.status, dimensions:item.dimensions, "
+                    "parent_ids:item.parents, merge_operation:item.operation, "
+                    "evaluation:item.evaluation, explanation:item.explanation, "
+                    "examples_json:item.examples_json, revision:$revision, "
+                    "created_at:datetime()}) "
+                    "CREATE (g)-[:TRACKS_CONVERSATIONAL_GOAL]->(s) "
+                    "WITH s,item "
+                    "OPTIONAL MATCH (:TravelGoal {id:$previous_id})"
+                    "-[:TRACKS_CONVERSATIONAL_GOAL]->"
+                    "(old:ConversationalGoalState {goal_id:item.id}) "
+                    "FOREACH (_ IN CASE WHEN old IS NULL THEN [] ELSE [1] END | "
+                    "CREATE (old)-[:REVISED_TO]->(s)) "
+                    "WITH s,item,old WHERE old IS NULL "
+                    "UNWIND item.parents AS parent_id "
+                    "MATCH (:TravelGoal {id:$previous_id})"
+                    "-[:TRACKS_CONVERSATIONAL_GOAL]->"
+                    "(parent:ConversationalGoalState {goal_id:parent_id}) "
+                    "CREATE (parent)-[:DERIVED_FROM_GOAL {operation:item.operation}]->(s)",
+                    user_id=user_id, session_id=session_id, revision=revision,
+                    previous_id=previous["id"] if previous else None,
+                    items=[{**item,
+                            "operation": operations.get(item["id"], "keep"),
+                            "evaluation": evaluations.get(item["id"], {}).get("category"),
+                            "explanation": evaluations.get(item["id"], {}).get("explanation", ""),
+                            "examples_json": json.dumps(
+                                evaluations.get(item["id"], {}).get("examples", []),
+                                ensure_ascii=False)}
+                           for item in dialogue_goals])
+                await result.consume()
+            return revision
+
+        async with self._driver.session() as session:
+            return await session.execute_write(write_revision)
+
+    async def link_goal_revision_trace(self, session_id: str, turn_id: str,
+                                       trace_id: str) -> None:
+        """Link a completed trace to its turn, and only exact marked ToolCalls."""
         await self._write(
-            """
-            MERGE (u:User {identifier: $user_id})
-            ON CREATE SET u.id = randomUUID(), u.created_at = datetime()
-            MERGE (g:TravelGoal {session_id: $session_id})
-            ON CREATE SET g.created_at = datetime()
-            SET g.user_identifier = $user_id,
-                g.state_json = $state_json,
-                g.revision = $revision,
-                g.updated_at = datetime()
-            MERGE (u)-[:HAS_GOAL]->(g)
-            """,
-            session_id=session_id,
-            user_id=user_id,
-            state_json=json.dumps(state, ensure_ascii=False),
-            revision=state.get("revision", 0),
-        )
+            "MATCH (t:ReasoningTrace {id:$trace_id, session_id:$session_id}) "
+            "MATCH (g:TravelGoal {session_id:$session_id, turn_id:$turn_id}) "
+            "MERGE (t)-[:HAS_GOAL_REVISION]->(g)",
+            session_id=session_id, turn_id=turn_id, trace_id=trace_id)
+        await self._write(
+            "MATCH (t:ReasoningTrace {id:$trace_id, session_id:$session_id})"
+            "-[:HAS_STEP]->(:ReasoningStep)-[:USES_TOOL]->(call:ToolCall) "
+            "MATCH (event:GoalRevisionEvent {session_id:$session_id, "
+            "turn_id:$turn_id, cause:'tool_observation', "
+            "observation_source:'agent_tool'}) "
+            "WHERE event.observation_id IS NOT NULL "
+            "AND call.result CONTAINS ('Goal observation id: ' + event.observation_id) "
+            "MERGE (call)-[:OBSERVED_IN]->(event)",
+            session_id=session_id, turn_id=turn_id, trace_id=trace_id)
+
+    async def link_goal_revision_message(self, session_id: str, turn_id: str,
+                                         message_id: str) -> None:
+        """Associate all snapshots of one turn with its actual user message."""
+        await self._write(
+            "MATCH (m:Message {id:$message_id}) "
+            "MATCH (g:TravelGoal {session_id:$session_id, turn_id:$turn_id}) "
+            "MERGE (m)-[:TRIGGERED_REVISION]->(g)",
+            session_id=session_id, turn_id=turn_id, message_id=message_id)
 
     async def sync_session_features(self, user_id: str, session_id: str, state: dict[str, Any]) -> None:
         """Link this session's explicit requests to shared graph dimensions.
@@ -964,7 +1277,8 @@ class TripGraphRepository:
         }
         CALL (u) {
             OPTIONAL MATCH (u)-[:HAS_GOAL]->(goal:TravelGoal)
-            WHERE $exclude_session_id IS NULL OR goal.session_id <> $exclude_session_id
+            WHERE ($exclude_session_id IS NULL OR goal.session_id <> $exclude_session_id)
+              AND NOT (goal)-[:REVISED_TO]->(:TravelGoal)
             WITH goal ORDER BY goal.updated_at DESC
             RETURN collect(goal.state_json)[0..3] AS recent_goals
         }

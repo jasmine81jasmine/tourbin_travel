@@ -119,9 +119,17 @@ async def init_memory_client() -> MemoryClient | None:
         try:
             from src.memory.graph import TripGraphRepository
 
-            await TripGraphRepository(_memory_client._client._ensure_connected()).ensure_feature_constraints()
+            repository = TripGraphRepository(_memory_client._client._ensure_connected())
+            await repository.ensure_goal_revisions()
+            await repository.ensure_feature_constraints()
         except Exception:
             logger.warning("Could not ensure session feature indexes", exc_info=True)
+        try:
+            from src.memory.preference_graph import ensure_preference_ontology
+
+            await ensure_preference_ontology(_memory_client._client._ensure_connected())
+        except Exception:
+            logger.exception("Could not initialize the controlled preference vocabulary")
         _memory_client.long_term._deduplication = DeduplicationConfig(
             auto_merge_threshold=settings.dedup_auto_merge_threshold,
             flag_threshold=settings.dedup_flag_threshold,

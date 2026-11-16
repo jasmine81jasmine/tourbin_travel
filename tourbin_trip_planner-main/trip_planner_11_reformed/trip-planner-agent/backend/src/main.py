@@ -2,6 +2,7 @@
 
 import logging
 import os
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -10,9 +11,10 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.adapters import university_proxy
-from src.api.routes import chat, map as trip_map
+from src.api.routes import auth, chat, map as trip_map
 from src.config import get_settings
 from src.memory.client import close_memory_client, init_memory_client, is_memory_connected
+from src.memory.preference_schedule import preference_worker
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,8 +29,16 @@ if _settings.anthropic_api_key and _settings.anthropic_api_key.get_secret_value(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_memory_client()
-    yield
-    await close_memory_client()
+    worker = asyncio.create_task(preference_worker())
+    try:
+        yield
+    finally:
+        worker.cancel()
+        try:
+            await worker
+        except asyncio.CancelledError:
+            pass
+        await close_memory_client()
 
 
 def create_app() -> FastAPI:
@@ -50,6 +60,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(chat.router, prefix="/api", tags=["chat"])
+    app.include_router(auth.router, prefix="/api", tags=["auth"])
     app.include_router(trip_map.router, prefix="/api", tags=["map"])
     # OpenAI-wire-format shim in front of the university LLM/embedding
     # gateway -- only hit when LLM_BASE_URL / EMBEDDING_BASE_URL in .env

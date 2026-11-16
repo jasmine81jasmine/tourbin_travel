@@ -6,6 +6,7 @@ the query/business logic is easy to unit test independently of pydantic-ai.
 
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from datetime import datetime, timezone
@@ -20,6 +21,7 @@ from src.agent.geo import estimate_duration_hours, haversine_km, point_in_any_po
 from src.agent.regions import IRAN_REGION_ALIASES, expand_location
 from src.agent.variety import vary_candidates
 
+logger = logging.getLogger(__name__)
 # Tehran city-center coordinates, used as the default trip origin when the
 # user hasn't given/updated one (matches SYSTEM_PROMPT's default assumption).
 DEFAULT_ORIGIN = {"name": "تهران", "latitude": 35.6892, "longitude": 51.3890}
@@ -97,7 +99,56 @@ async def search_destinations(
         exclude_destination_ids=exclude_ids,
         limit=min(max(limit * 3, limit), 40),
     )
+    if hasattr(ctx.deps.graph, "score_candidates_for_user"):
+        try:
+            results = await ctx.deps.graph.score_candidates_for_user(ctx.deps.user_id, results)
+        except Exception:
+            logger.warning("Could not score destination preferences", exc_info=True)
     return vary_candidates(results, ctx.deps.previous_recommendations, ctx.deps.user_id, ctx.deps.session_id, limit)
+
+
+async def search_destinations_by_features(
+    ctx: RunContext[AgentDeps], feature_ids: list[str],
+    location: str | None = None, match_all: bool = True, limit: int = 10,
+) -> dict[str, Any]:
+    """Check real destination-to-ontology edges, not vocabulary-only preferences."""
+    if not ctx.deps.graph:
+        return {"error": "Graph repository not available"}
+    ids = list(dict.fromkeys(feature_ids))[:6]
+    if not ids:
+        return {"error": "Provide at least one ontology feature id"}
+    location = location or (ctx.deps.travel_goal.region if ctx.deps.travel_goal else None)
+    if _default_tehran_area(ctx, location):
+        location = "اطراف تهران"
+    rows = await ctx.deps.graph.search_destinations_by_features(
+        ids, expand_location(location) or None, match_all=match_all, limit=min(limit * 3, 30))
+    try:
+        avoided = set(await ctx.deps.graph.get_avoided_destination_ids(ctx.deps.user_id))
+        rows = [row for row in rows if row.get("id") not in avoided]
+    except Exception:
+        logger.warning("Could not load destination exclusions", exc_info=True)
+    if hasattr(ctx.deps.graph, "score_candidates_for_user"):
+        try:
+            rows = await ctx.deps.graph.score_candidates_for_user(ctx.deps.user_id, rows)
+        except Exception:
+            logger.warning("Could not score ontology candidates", exc_info=True)
+    return {
+        "candidates": vary_candidates(rows, ctx.deps.previous_recommendations,
+                                      ctx.deps.user_id, ctx.deps.session_id, min(limit, 20)),
+        "requested_feature_ids": ids,
+        "match_all": match_all,
+        "note": ("Only actual destination-feature graph edges count as evidence; "
+                 "missing matches do not prove the opposite or justify relaxing a hard constraint."),
+    }
+
+
+async def get_destination_features(
+    ctx: RunContext[AgentDeps], name_or_id: str,
+) -> dict[str, Any]:
+    if not ctx.deps.graph:
+        return {"error": "Graph repository not available"}
+    return {"destination": name_or_id,
+            "features": await ctx.deps.graph.get_destination_features(name_or_id)}
 
 
 async def get_destination_details(ctx: RunContext[AgentDeps], name_or_id: str) -> dict[str, Any]:
@@ -130,6 +181,11 @@ async def semantic_search_destinations(
     except Exception:
         # Searching still works if user feedback cannot be read.
         pass
+    if hasattr(ctx.deps.graph, "score_candidates_for_user"):
+        try:
+            results = await ctx.deps.graph.score_candidates_for_user(ctx.deps.user_id, results)
+        except Exception:
+            logger.warning("Could not score destination preferences", exc_info=True)
     return vary_candidates(results, ctx.deps.previous_recommendations, ctx.deps.user_id, ctx.deps.session_id, limit, semantic=True)
 
 

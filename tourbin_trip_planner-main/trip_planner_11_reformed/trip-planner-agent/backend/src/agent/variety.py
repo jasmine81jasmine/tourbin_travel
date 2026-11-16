@@ -11,12 +11,13 @@ def vary_candidates(
     if not rows or limit <= 0:
         return []
 
-    def quality(row: dict[str, Any]) -> tuple[int, int, float, float]:
+    def quality(row: dict[str, Any]) -> tuple[int, int, float, float, float]:
         # The graph returns curated, nearby-linked, then broad OSM. Never
         # promote a broad fallback over an available curated destination.
         tier = 2 if row.get("source_is_osm") and not row.get("near_anchor") else 1 if row.get("near_anchor") else 0
         score_band = int(float(row.get("semantic_score") or 0) * 20) if semantic else 0
         return ((-score_band, tier) if semantic else (tier, 0)) + (
+            -float(row.get("preference_score") or 0),
             -float(row.get("user_rating_score") or 0), -float(row.get("facilities_score") or 0)
         )
 

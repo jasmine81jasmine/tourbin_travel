@@ -58,6 +58,46 @@ async def test_selected_waterfall_is_not_replaced_by_unrelated_multiday_plans():
 
 
 @pytest.mark.asyncio
+async def test_accepted_joint_destinations_route_together_or_remain_unrouted():
+    names = ["دریاچه الف", "دریاچه ب"]
+    places = [
+        {"name": name, "latitude": 35.8 + index * .1, "longitude": 51.4,
+         "categories": ["طبیعت"]}
+        for index, name in enumerate(names)
+    ]
+
+    class Graph:
+        async def get_destination_details(self, name):
+            return next((row for row in places if row["name"] == name), None)
+
+    class Maps(_Maps):
+        async def route(self, origin, destination):
+            return {"distance_km": 20, "duration_hours": .5}
+
+        async def trip_order(self, waypoints, **kwargs):
+            return list(range(len(waypoints)))
+
+    goal = TravelGoal(duration="دو روز", destination_names=names)
+    options = []
+    reply, itinerary = await screen_short_trip(
+        goal, Maps(), [], "آبشار نامرتبط را پیشنهاد می‌کنم", graph=Graph(),
+        map_itineraries=options)
+    assert {stop["name"] for stop in itinerary["stops"]} == set(names)
+    assert all(name in reply for name in names)
+    assert "آبشار نامرتبط" not in reply
+    assert len(options) == 1
+
+    class MissingGraph(Graph):
+        async def get_destination_details(self, name):
+            return places[0] if name == names[0] else None
+
+    reply, itinerary = await screen_short_trip(
+        goal, Maps(), [], "آبشار نامرتبط", graph=MissingGraph())
+    assert itinerary is None and all(name in reply for name in names)
+    assert "آبشار نامرتبط" not in reply
+
+
+@pytest.mark.asyncio
 async def test_selected_place_keeps_map_coordinates_when_graph_detail_lacks_them():
     class Graph:
         async def get_destination_details(self, name):

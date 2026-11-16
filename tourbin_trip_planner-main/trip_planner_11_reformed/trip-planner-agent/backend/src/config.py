@@ -98,6 +98,7 @@ class Settings(BaseSettings):
     host: str = Field(default="0.0.0.0")
     port: int = Field(default=8000)
     debug: bool = Field(default=True)
+    auth_cookie_secure: bool = Field(default=False, description="Set true when serving over HTTPS.")
     cors_origins_str: str = Field(default="http://localhost:3000", alias="cors_origins")
 
     @computed_field

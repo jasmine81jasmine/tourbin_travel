@@ -110,7 +110,7 @@ def ground_route_text(reply: str, itinerary: Any) -> str:
 def _discovery_layers(goal: TravelGoal) -> tuple[str, ...]:
     """Search for places to visit, not arbitrary nearby services."""
     text = (goal.objective + " " + goal.semantic_query).replace("‌", " ").lower()
-    if "کمپ" in text or "چادر" in text:
+    if ("کمپ" in text or "چادر" in text) and "کمپ" not in goal.avoid:
         return ("campground", "natural_feature", "interests")
     if any(word in text for word in ("طبیعت", "جنگل", "کوه", "دریاچه", "آبشار")):
         return ("natural_feature", "park", "garden")
@@ -201,6 +201,8 @@ async def _discover_nearby(goal: TravelGoal, maps: Any, origin: tuple[float, flo
 
 def _wants_one_place(goal: TravelGoal) -> bool:
     """Distinguish independent options from a real multi-stop trip request."""
+    if len(goal.destination_names) > 1:
+        return False
     # goal.objective retains earlier turns; the latest explicit correction wins.
     text = goal.objective.rsplit("اصلاح جدید:", 1)[-1].replace("‌", " ")
     if re.search(r"چند\s*(?:توقف|مقصد)|(?:دو|سه|[۲۳23])\s*(?:توقف|مقصد)", text):
@@ -242,6 +244,33 @@ async def _destination_descriptions(
     return fallback
 
 
+async def _route_matches_transport(goal: TravelGoal, plan: dict, graph: Any) -> bool:
+    """Routing proves road time, not whether the user's vehicle can access it."""
+    if not goal.transport:
+        return True
+    if graph is None:
+        return False
+    requested = goal.transport.replace("‌", " ").strip()
+    ordinary = requested in {"ماشین معمولی", "خودرو معمولی", "ماشین", "خودرو",
+                              "ماشین سواری", "خودرو سواری", "سواری"}
+    expected = "سواری" if ordinary else requested
+    for stop in plan["stops"]:
+        try:
+            detail = await graph.get_destination_details(stop["name"])
+        except Exception:
+            return False
+        if not detail or detail.get("name") != stop["name"]:
+            return False
+        vehicles = [str(value).replace("‌", " ").strip()
+                    for value in detail.get("vehicles") or []]
+        if not any(expected == vehicle or expected in vehicle for vehicle in vehicles):
+            return False
+        road = str(detail.get("road_type") or "")
+        if ordinary and any(word in road for word in ("آفرود", "صعب", "سخت")):
+            return False
+    return True
+
+
 def _place(row: dict) -> tuple[float, float]:
     return float(row["latitude"]), float(row["longitude"])
 
@@ -252,7 +281,9 @@ def _recent_names(goal: TravelGoal) -> set[str]:
 
 def _allow_revisit(goal: TravelGoal) -> bool:
     latest = goal.objective.rsplit("اصلاح جدید:", 1)[-1]
-    return (any(name in latest for name in _recent_names(goal))
+    return ((any(name in latest for name in _recent_names(goal))
+             or (len(goal.destination_names) == 1
+                 and goal.destination_names[0] in _recent_names(goal)))
             and not any(term in latest for term in ("دیگه", "دیگر", "جدید", "متفاوت")))
 
 
@@ -337,7 +368,17 @@ async def _multiday_candidates(goal: TravelGoal, graph: Any, messages: list[Any]
     """Search the graph even when the agent returned no place names this turn."""
     location = expand_location(goal.region or ("اطراف تهران" if "اطراف تهران" in goal.objective else None)) or None
     rows = []
+    vehicle_rows = []
     if graph is not None:
+        if goal.transport and hasattr(graph, "search_destinations_by_features"):
+            try:
+                from src.memory.preference_graph import feature_id
+
+                vehicle_rows = await graph.search_destinations_by_features(
+                    [feature_id("Vehicle", goal.transport)], location=location, limit=20)
+                rows.extend(vehicle_rows)
+            except Exception:
+                pass
         if goal.semantic_query and hasattr(graph, "semantic_search_destinations"):
             try:
                 semantic = await graph.semantic_search_destinations(goal.semantic_query, limit=24)
@@ -348,7 +389,8 @@ async def _multiday_candidates(goal: TravelGoal, graph: Any, messages: list[Any]
             except Exception:
                 pass
         try:
-            if ("کمپ" in goal.objective or "چادر" in goal.objective
+            if ((("کمپ" in goal.objective or "چادر" in goal.objective)
+                    and "کمپ" not in goal.avoid)
                     or ("کمپ" in goal.prior_insights.get("trip_types", []) and "کمپ" not in goal.avoid)):
                 rows += await graph.search_destinations(trip_types=["کمپ"], location=location, limit=80)
             rows += await graph.search_destinations(location=location, limit=100)
@@ -369,6 +411,9 @@ async def _multiday_candidates(goal: TravelGoal, graph: Any, messages: list[Any]
             continue
         seen.add(row["name"])
         result.append(row)
+    if vehicle_rows:
+        verified_vehicle_ids = {row.get("id") for row in vehicle_rows}
+        result = [row for row in result if row.get("id") in verified_vehicle_ids]
     recent = set() if _allow_revisit(goal) else _recent_names(goal) | (avoid_names or set())
     unseen = [row for row in result if row["name"] not in recent]
     if len(unseen) >= 2:
@@ -383,7 +428,8 @@ async def _discover_multiday_plans(goal: TravelGoal, maps: Any, graph: Any, mess
     if len(pool) < 2:
         return []
     # A few likely anchors, not every graph node: route requests have quotas.
-    camping = ("کمپ" in goal.objective or "چادر" in goal.objective
+    camping = ((("کمپ" in goal.objective or "چادر" in goal.objective)
+                and "کمپ" not in goal.avoid)
                or ("کمپ" in goal.prior_insights.get("trip_types", []) and "کمپ" not in goal.avoid))
     ranked = sorted(pool, key=lambda row: (
         -_intent_score(row, goal),
@@ -433,7 +479,7 @@ async def _discover_multiday_plans(goal: TravelGoal, maps: Any, graph: Any, mess
                 continue
             seen.add(key)
             plan = await _route_plan(maps, origin, goal.origin, chosen, budget)
-            if plan:
+            if plan and await _route_matches_transport(goal, plan, graph):
                 if plans and any(key & {stop["name"] for stop in existing["stops"]} for existing in plans):
                     overlapping.append(plan)
                     continue
@@ -450,6 +496,13 @@ async def _render_multiday_plans(
     formatter: Callable[[dict[str, dict]], Awaitable[dict[str, str]]] | None,
     map_itineraries: list[dict] | None = None,
 ) -> tuple[str, dict | None]:
+    if goal.transport:
+        plans = [plan for plan in plans
+                 if await _route_matches_transport(goal, plan, graph)]
+        if not plans:
+            return (f"برای سفر با {goal.transport} مسیرِ سازگار با وسیلهٔ نقلیهٔ شما "
+                    "در داده‌های مقصد تأیید نشد؛ زمان رانندگی به‌تنهایی "
+                    "مناسب‌بودن جاده را ثابت نمی‌کند.", None)
     if map_itineraries is not None:
         map_itineraries.extend(plans)
     names = {stop["name"] for plan in plans for stop in plan["stops"]}
@@ -478,7 +531,7 @@ async def _render_multiday_plans(
             lines.append("**📅 روز 2 — وقت آزاد برای گشت‌وگذار و استراحت در همان مقصد**")
         if days > last_day:
             lines.append(f"**📅 روز {days} — بازگشت**")
-        if "کمپ" in goal.objective or "چادر" in goal.objective:
+        if ("کمپ" in goal.objective or "چادر" in goal.objective) and "کمپ" not in goal.avoid:
             lines.append("**شب‌مانی:** پیش از حرکت، مجاز بودن کمپ و امکانات محل شب‌مانی را بررسی کنید.")
         lines.append(f"- **بازگشت به {plan['origin']['name']}:** "
                      f"{plan['return_leg']['leg_distance_km_from_previous']} کیلومتر، "
@@ -520,6 +573,32 @@ async def screen_short_trip(goal: TravelGoal | None, maps: Any, messages: list[A
         origin = (location["latitude"], location["longitude"]) if location else None
     else:
         origin = None
+
+    # A set of named places may be one accepted joint trip. Route precisely
+    # those places or leave routing unverified; never fill in other options.
+    if goal.destination_names and len(goal.destination_names) > 1:
+        rows = []
+        for selected in goal.destination_names:
+            row = next((item for item in candidates if item.get("name") == selected), None)
+            if graph is not None:
+                try:
+                    detail = await graph.get_destination_details(selected)
+                    if detail and detail.get("name") == selected:
+                        row = {**(row or {}), **detail}
+                except Exception:
+                    pass
+            if row is None or row.get("latitude") is None or row.get("longitude") is None:
+                return (f"برای {' و '.join(goal.destination_names)} هنوز اطلاعات مکانی "
+                        "کافی برای مسیر مشترک ندارم.", None)
+            rows.append(row)
+        if origin is None or maps is None or not maps.enabled:
+            return (f"برای {' و '.join(goal.destination_names)} مسیر رانندگی تأیید نشده است.", None)
+        plan = await _route_plan(maps, origin, origin_name, rows, budget)
+        if not plan:
+            return (f"برای {' و '.join(goal.destination_names)} مسیر مشترکِ سازگار با "
+                    "مدت سفر تأیید نشد.", None)
+        return await _render_multiday_plans(
+            goal, [plan], rows, graph, description_formatter, map_itineraries)
 
     # A named place is the user's decision, not another candidate search.
     # Never silently replace it with unrelated multi-day itineraries.

@@ -57,8 +57,17 @@ FOR (c:Country) REQUIRE c.code IS UNIQUE;
 CREATE CONSTRAINT trip_id IF NOT EXISTS
 FOR (t:Trip) REQUIRE t.id IS UNIQUE;
 
-CREATE CONSTRAINT travel_goal_session IF NOT EXISTS
-FOR (g:TravelGoal) REQUIRE g.session_id IS UNIQUE;
+CREATE CONSTRAINT travel_goal_id IF NOT EXISTS
+FOR (g:TravelGoal) REQUIRE g.id IS UNIQUE;
+
+CREATE INDEX travel_goal_session_lookup IF NOT EXISTS
+FOR (g:TravelGoal) ON (g.session_id);
+
+CREATE CONSTRAINT conversational_goal_state_id IF NOT EXISTS
+FOR (g:ConversationalGoalState) REQUIRE g.id IS UNIQUE;
+
+CREATE INDEX conversational_goal_state_session_lookup IF NOT EXISTS
+FOR (g:ConversationalGoalState) ON (g.session_id, g.goal_id);
 
 CREATE CONSTRAINT requested_style_name IF NOT EXISTS
 FOR (s:RequestedStyle) REQUIRE s.name IS UNIQUE;

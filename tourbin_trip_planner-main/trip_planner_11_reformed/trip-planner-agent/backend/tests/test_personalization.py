@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from src.agent.goals import TravelGoal
+from src.agent.goals import PlanningSubgoal
 from src.agent.agent import update_travel_goal
 from src.agent import personalization
 from src.agent.personalization import explain_selected_plans
@@ -308,6 +309,63 @@ async def test_one_natural_reason_per_final_route_with_writer_receiving_verified
     assert text.count("**مسیر 1:**") == 1 and text.count("**مسیر 2:**") == 1
     assert "دیدن طبیعت دامنهٔ البرز" in text
     assert "ویژگی «طبیعت»" not in text and "اطلاعات تأییدشدهٔ کافی ندارم" not in text
+
+
+@pytest.mark.asyncio
+async def test_reasons_use_atomic_goal_matches_and_database_description_without_status_list():
+    class DetailedGraph(Graph):
+        async def get_destination_details(self, name):
+            return {"name": name, "categories": ["طبیعت"], "trip_types": [],
+                    "description": "کنار رودخانه، مسیر پیاده‌روی میان درختان قرار دارد. "
+                                   "برای بخش‌های سنگلاخی کفش مناسب همراه داشته باشید."}
+
+    async def writer(payload):
+        plan = payload["plans"][0]
+        assert plan["matched_goal_dimensions"] == [{
+            "goal_id": "G1", "source": "explicit", "destination": "دره الف",
+            "supported_aspect": "دستهٔ «طبیعت»"}]
+        assert "رودخانه" in plan["stops"][0]["description"]
+        return {"intro": "این مسیر را با خواستهٔ این سفر سنجیدم.",
+                "plans": [{"index": 1, "why": "دره الف را به خاطر طبیعتش پیشنهاد دادم."}]}
+
+    goal = TravelGoal(subgoals=[
+        PlanningSubgoal(id="G1", name="طبیعت", source="explicit",
+                        evidence_type="category", category="طبیعت"),
+        PlanningSubgoal(id="G2", name="کمپ و هیجان", source="preference",
+                        evidence_type="unverified")])
+    explanation = await explain_selected_plans(
+        goal, route("دره الف"), DetailedGraph(), None, "u", writer=writer)
+    assert "دربارهٔ دره الف" in explanation
+    assert "رودخانه" in explanation and "کفش مناسب" in explanation
+    assert "G1" not in explanation and "وضعیت هدف" not in explanation
+
+
+@pytest.mark.asyncio
+async def test_prior_trip_preference_does_not_override_explicit_new_trip():
+    goal = TravelGoal(
+        objective="به‌جایش طبیعت می‌خواهم", categories=["طبیعت"],
+        prior_insights={"categories": ["تاریخی"], "trip_types": ["کمپ"]},
+    )
+    context = personalization._context(goal, [], set())
+    assert "categories" not in context["previous_trip_requests_not_durable"]
+    assert context["this_trip"]["categories"] == ["طبیعت"]
+
+
+@pytest.mark.asyncio
+async def test_feature_only_destination_explains_actual_ontology_link():
+    class FeatureGraph(Graph):
+        async def get_destination_details(self, name):
+            return {"name": name, "categories": [], "trip_types": [], "description": ""}
+
+        async def get_destination_features(self, name):
+            return [{"id": "roadtype:easy", "name": "آسان"}]
+
+    goal = TravelGoal(subgoals=[
+        PlanningSubgoal(id="G1", name="جاده مناسب", source="explicit",
+                        evidence_type="feature", feature_id="roadtype:easy")])
+    text = await explain_selected_plans(goal, route("مقصد الف"), FeatureGraph(), None, "u")
+    assert "مقصد الف" in text and "آسان" in text
+    assert "وضعیت هدف‌ها" not in text
 
 
 @pytest.mark.asyncio

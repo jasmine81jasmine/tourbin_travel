@@ -49,6 +49,7 @@
       background: rgba(248, 245, 238, 0.88);
       box-shadow: 0 0 60px rgba(26, 58, 42, 0.1);
     }
+    .app[hidden] { display: none; }
 
     /* ── Header ─────────────────────────────── */
     header {
@@ -121,6 +122,29 @@
       border-color: var(--mist);
     }
     .new-chat-btn[hidden] { display: none; }
+    .auth-panel { padding: 28px; margin: auto; width: min(100%, 420px); background: white;
+      border: 1px solid var(--sand); border-radius: var(--radius); display: grid; gap: 12px; }
+    .auth-panel[hidden], .app-content[hidden] { display: none; }
+    .auth-panel input { padding: 11px; border: 1px solid var(--sand); border-radius: 8px; font: inherit; direction: ltr; }
+    .auth-panel button { padding: 10px; border: 0; border-radius: 8px; background: var(--moss); color: white; font: inherit; cursor: pointer; }
+    .auth-error { color: #b91c1c; min-height: 1.5em; }
+    .history-menu { position: relative; }
+    .history-menu summary { list-style: none; }
+    .history-menu summary::-webkit-details-marker { display: none; }
+    .history-menu[open] summary { background: rgba(255, 255, 255, 0.16); }
+    .history-list {
+      position: absolute; top: calc(100% + 8px); right: 0; width: min(310px, 85vw);
+      max-height: 55vh; overflow-y: auto; padding: 6px; z-index: 20;
+      background: white; border: 1px solid var(--sand); border-radius: 12px;
+      box-shadow: 0 10px 32px rgba(26, 58, 42, 0.2);
+    }
+    .history-list button {
+      display: block; width: 100%; padding: 10px 12px; text-align: right; cursor: pointer;
+      border: 0; border-radius: 8px; background: transparent; color: var(--forest);
+      font: 500 0.82rem 'Vazirmatn', sans-serif; line-height: 1.5;
+    }
+    .history-list button:hover, .history-list button:focus-visible { background: var(--mist); }
+    .history-list p { padding: 10px; font-size: 0.78rem; color: var(--bark); }
     .map-back-btn[hidden] { display: none; }
     .view-map-btn {
       display: inline-flex;
@@ -467,9 +491,9 @@
       .logo-icon { width: 62px; height: 62px; }
       .header-text h1 { font-size: 1.02rem; }
       .header-text p { display: none; }
-      .header-actions { gap: 7px; }
-      .status-dot { font-size: 0; gap: 0; }
-      .new-chat-btn { padding: 6px 10px; font-size: 0.7rem; }
+      .header-actions { gap: 5px; }
+      .status-dot { display: none; }
+      .new-chat-btn { padding: 6px 8px; font-size: 0.68rem; }
       .chat-area { padding: 16px 12px 8px; gap: 12px; }
       .welcome-card { padding: 17px 16px; }
       .welcome-card .tehran-badge { white-space: normal; line-height: 1.6; }
@@ -484,6 +508,7 @@
 
     @media (max-width: 380px) {
       .header-text p, .status-dot { display: none; }
+      .header-text h1 { font-size: 0.85rem; }
       .hints { justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
       .hint-chip { flex: 0 0 auto; }
     }
@@ -494,6 +519,15 @@
   </style>
 </head>
 <body>
+<form class="auth-panel" id="authPanel" hidden onsubmit="submitAuth(event)">
+  <h2 id="authTitle">ورود به توربین</h2>
+  <p>با ایمیل یا شماره تلفن و رمز عبور وارد شوید. برای ثبت‌نام، حساب تازه بسازید.</p>
+  <input id="authIdentifier" autocomplete="username" placeholder="ایمیل یا شماره تلفن با کد کشور" required />
+  <input id="authPassword" type="password" autocomplete="current-password" placeholder="رمز عبور (حداقل ۸ کاراکتر)" minlength="8" required />
+  <p class="auth-error" id="authError" role="alert"></p>
+  <button type="submit" id="authSubmit">ورود</button>
+  <button type="button" onclick="toggleAuth()">حساب ندارید؟ ثبت‌نام</button>
+</form>
 <div class="app">
 
   <!-- Header -->
@@ -506,6 +540,11 @@
     </div>
 
     <div class="header-actions">
+      <details class="history-menu" id="historyMenu">
+        <summary class="new-chat-btn">گفتگوهای قبلی</summary>
+        <div class="history-list" id="historyList"></div>
+      </details>
+      <button class="new-chat-btn" type="button" onclick="logout()">خروج</button>
       <button class="new-chat-btn map-back-btn" id="mapBackBtn" hidden type="button" onclick="closeTripMap()">→ بازگشت</button>
       <button class="new-chat-btn" id="newChatBtn" onclick="startNewChat()">＋ چت جدید</button>
       <div class="status-dot" id="connectionStatus">
@@ -590,6 +629,7 @@
   let isLoading = false;
   let sessionId = null;
   let userId = null;
+  let registering = false;
   let tripMap = null;
   let tripRouteLayer = null;
   let mapAbort = null;
@@ -610,6 +650,128 @@
   const mapLegs = document.getElementById('mapLegs');
   const mapTotal = document.getElementById('mapTotal');
   const mapBackBtn = document.getElementById('mapBackBtn');
+  const authPanel = document.getElementById('authPanel');
+
+  function toggleAuth() {
+    registering = !registering;
+    document.getElementById('authTitle').textContent = registering ? 'ساخت حساب توربین' : 'ورود به توربین';
+    document.getElementById('authSubmit').textContent = registering ? 'ثبت‌نام' : 'ورود';
+    document.getElementById('authPassword').autocomplete = registering ? 'new-password' : 'current-password';
+    document.getElementById('authError').textContent = '';
+  }
+
+  function showAuth() {
+    document.querySelector('.app').hidden = true;
+    authPanel.hidden = false;
+    sessionId = null;
+    userId = null;
+    document.getElementById('authPassword').value = '';
+  }
+
+  async function submitAuth(event) {
+    event.preventDefault();
+    const button = document.getElementById('authSubmit');
+    button.disabled = true;
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/${registering ? 'register' : 'login'}`, {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: document.getElementById('authIdentifier').value,
+          password: document.getElementById('authPassword').value,
+        }),
+      });
+      if (!response.ok) throw new Error(response.status === 409 ? 'این حساب قبلاً ثبت شده است.' :
+        response.status === 401 ? 'ایمیل/تلفن یا رمز عبور نادرست است.' : 'ثبت‌نام یا ورود انجام نشد.');
+      authPanel.hidden = true;
+      document.querySelector('.app').hidden = false;
+      document.getElementById('authPassword').value = '';
+      await startNewChat();
+      await refreshHistory();
+    } catch (error) {
+      document.getElementById('authError').textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function logout() {
+    if (sessionId) await finalizeActiveChat().catch(() => {});
+    await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
+    chatArea.querySelectorAll('.message').forEach(message => message.remove());
+    document.getElementById('historyList').replaceChildren();
+    document.getElementById('historyMenu').open = false;
+    showAuth();
+  }
+
+  async function refreshHistory() {
+    const list = document.getElementById('historyList');
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/history`, { credentials: 'include' });
+      if (!response.ok) throw new Error('دریافت فهرست گفتگوها ممکن نشد.');
+      const sessions = await response.json();
+      list.replaceChildren();
+      if (!sessions.length) {
+        const empty = document.createElement('p');
+        empty.textContent = 'هنوز گفتگویی ذخیره نشده است.';
+        list.appendChild(empty);
+      }
+      sessions.forEach(item => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = item.title;
+        button.title = item.title;
+        button.addEventListener('click', () => openHistory(item.session_id));
+        list.appendChild(button);
+      });
+    } catch (error) {
+      const warning = document.createElement('p');
+      warning.textContent = error.message;
+      list.replaceChildren(warning);
+    }
+  }
+
+  async function openHistory(id) {
+    if (!id || isLoading) return;
+    document.getElementById('historyMenu').open = false;
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/history/${encodeURIComponent(id)}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('بارگذاری پیام‌های این گفتگو ممکن نشد.');
+      const data = await response.json();
+      closeTripMap();
+      chatArea.querySelectorAll('.message').forEach(message => message.remove());
+      document.getElementById('welcomeCard').style.display = 'none';
+      document.getElementById('hints').style.display = 'none';
+      document.getElementById('hintsLabel').style.display = 'none';
+      sessionId = id;
+      if (!data.messages.length) {
+        addMessage('bot', 'هنوز پیامی در این گفتگو ذخیره نشده است.');
+      }
+      data.messages.forEach(message => addMessage(message.role === 'user' ? 'user' : 'bot', message.content));
+    } catch (error) {
+      addMessage('bot', '⚠️ ' + error.message, true);
+    }
+  }
+
+  async function bootstrap() {
+    checkConnection();
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Sign in required');
+      authPanel.hidden = true;
+      document.querySelector('.app').hidden = false;
+      await startNewChat();
+      await refreshHistory();
+    } catch (_) { showAuth(); }
+  }
+
+  async function finalizeActiveChat() {
+    if (!sessionId) return;
+    const response = await fetch(
+      `${API_BASE}/api/auth/history/${encodeURIComponent(sessionId)}/finalize`,
+      { method: 'POST', credentials: 'include' }
+    );
+    if (!response.ok) throw new Error('استخراج ترجیحات این گفتگو انجام نشد؛ بعداً می‌توان دوباره تلاش کرد.');
+  }
 
   function validPoint(point) {
     return point && typeof point.name === 'string' && point.name.trim() &&
@@ -752,6 +914,15 @@
     } catch (error) {
       if (requestId !== mapGeneration || error.name === 'AbortError') return;
       mapStatus.textContent = `نقاط سفر نمایش داده شدند، اما مسیر جاده‌ای در دسترس نیست: ${error.message}`;
+      // A failed geometry request is never cached. Let the visitor retry
+      // the actual road route when Neshan recovers; do not draw a fake line.
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.textContent = 'تلاش دوباره برای مسیر جاده‌ای';
+      retry.addEventListener('click', () => openTripMap(itinerary, button));
+      const retryItem = document.createElement('li');
+      retryItem.appendChild(retry);
+      mapLegs.appendChild(retryItem);
     } finally {
       if (requestId === mapGeneration) mapAbort = null;
     }
@@ -801,6 +972,11 @@
 
   async function startNewChat() {
     if (isLoading) return;
+    let preferenceError = null;
+    if (sessionId) {
+      try { await finalizeActiveChat(); }
+      catch (error) { preferenceError = error.message; }
+    }
     closeTripMap();
     newChatBtn.disabled = true;
     sessionId = null;
@@ -814,6 +990,7 @@
     userInput.focus();
     chatArea.scrollTop = 0;
     await createSession();
+    if (preferenceError) addMessage('bot', '⚠️ ' + preferenceError, true);
     newChatBtn.disabled = false;
   }
 
@@ -830,6 +1007,7 @@
       document.getElementById('welcomeTitle').textContent = 'سلام، همسفر! 👋';
       document.getElementById('welcomeText').textContent = data.greeting;
       setConnectionStatus(true);
+      await refreshHistory();
     } catch (_) {
       setConnectionStatus(false);
     }
@@ -1009,13 +1187,13 @@
         body: JSON.stringify({
           message: text,
           session_id: sessionId,
-          user_id: userId,
         }),
       });
 
       hideTyping();
 
       if (!res.ok) {
+        if (res.status === 401) showAuth();
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || `خطای سرور: ${res.status}`);
       }
@@ -1025,6 +1203,7 @@
       userId = data.user_id;
       setConnectionStatus(true);
       addMessage('bot', data.reply || 'پاسخی دریافت نشد.', false, data.itinerary, data.itineraries);
+      await refreshHistory();
     } catch (err) {
       hideTyping();
       setConnectionStatus(false);
@@ -1041,9 +1220,14 @@
   }
 
   // Focus input on load
-  userInput.focus();
-  checkConnection();
-  createSession();
+  // Best-effort only: browsers may cancel this when closing a tab. The
+  // server-side inactivity worker is the reliable fallback.
+  window.addEventListener('pagehide', () => {
+    if (sessionId && !isLoading && navigator.sendBeacon) {
+      navigator.sendBeacon(`${API_BASE}/api/auth/history/${encodeURIComponent(sessionId)}/finalize`);
+    }
+  });
+  bootstrap();
 </script>
 </body>
 </html>

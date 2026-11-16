@@ -54,8 +54,7 @@ class ChatRequest(BaseModel):
     )
     user_id: str | None = Field(
         default=None,
-        description="Stable identifier for the person, used for cross-session "
-        "preferences and trip history. Restored from the browser cookie or generated if omitted.",
+        description="Deprecated; ignored. Identity comes from the authenticated account.",
     )
 
 

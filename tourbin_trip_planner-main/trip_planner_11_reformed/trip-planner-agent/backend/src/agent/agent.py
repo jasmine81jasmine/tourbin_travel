@@ -14,6 +14,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 
 from src.agent.dependencies import AgentDeps
 from src.agent.goals import TravelGoal
+from src.agent.goal_progress import observed_result
 from src.agent.tools import (
     build_trip_map,
     check_reachable_within_time,
@@ -21,6 +22,7 @@ from src.agent.tools import (
     find_destinations_near,
     find_nearby_amenities,
     get_destination_details,
+    get_destination_features,
     get_similar_past_trip_plans,
     get_user_preferences,
     get_user_trip_history,
@@ -29,6 +31,7 @@ from src.agent.tools import (
     record_trip_plan,
     save_user_preference,
     search_destinations,
+    search_destinations_by_features,
     semantic_search_destinations,
 )
 from src.config import get_settings
@@ -97,6 +100,10 @@ something the user requested now, or assume prior companions/season/duration
 still apply. If this trip specifies a different category, mood or trip type,
 ignore the conflicting older hint. An explicitly named destination can be
 revisited even if it was offered before.
+If `destination_names` contains a user-selected place and the latest message
+only adds constraints (family, low walking, facilities, etc.), keep that place.
+Do NOT silently replace it with other destinations. If you cannot verify the
+required amenities or a feasible itinerary, say so and ask before switching.
 Do not revive a constraint that the user removed. Continue moving the goal toward a useful
 decision: discover candidates, compare trade-offs, refine the plan, and remember which
 option the user selected.
@@ -124,6 +131,14 @@ camping is permitted at an unverified location. For weather, distinguish
 general seasonal climate from live conditions you cannot verify. On a "chat"
 turn reply conversationally without planning. Apply the workflow below only
 to turns actually requesting a new or revised plan.
+For questions about toilets, rest facilities, or little walking, distinguish
+where an amenity is located from whether the user can reach it with their
+requested effort. A mention of toilets at a distant or uphill shelter is NOT
+evidence of toilets at the entrance or on an easy family route. If location,
+current availability, walking distance, or accessibility is not verified,
+state the uncertainty plainly and do not call the whole trip suitable.
+Driving directions and a destination's generic "easy road" or "low physical
+readiness" tag do not verify its pedestrian route or nearby toilets.
 
 ## Planning workflow
 
@@ -181,11 +196,16 @@ to turns actually requesting a new or revised plan.
    description, cautions, nearby landmarks, access vehicles, exit routes, and nearby
    destinations.
 8. Compose the final answer as a friendly, concrete plan. For a substantial answer,
-   use short Markdown sections such as `### پیشنهاد توربین`, `### برنامه سفر`,
-   `### مسیر و دسترسی`, and `### نکات مهم`. Use compact bullet points rather than
-   dense walls of text or tables. Add 2-4 relevant emojis across the whole response
-   (for example 📍, 🚗, 🌿, ⚠️), not an emoji on every line. End with at most one useful,
-   specific follow-up question.
+    use short Markdown sections such as `### پیشنهاد توربین`, `### برنامه سفر`,
+    `### مسیر و دسترسی`, and `### نکات مهم`. Use compact bullet points rather than
+    dense walls of text or tables. Add 2-4 relevant emojis across the whole response
+    (for example 📍, 🚗, 🌿, ⚠️), not an emoji on every line. End with at most one useful,
+    specific follow-up question.
+   For overnight camping, a graph trip-type tag or nature description is not
+   evidence that pitching a tent is allowed. If no permitted campsite or
+   explicit permission is verified, present the location only as a candidate
+   to investigate, not as a confirmed overnight itinerary or established
+   campsite; identify the missing permission check.
 9. For every finalized itinerary, include `مسیر و دسترسی`: the known
    route or Tehran exit, approximate one-way distance/time, road type or difficult
    final segment, suitable vehicle, and seasonal/access cautions when available.
@@ -577,6 +597,44 @@ def get_trip_planner_agent() -> Agent[AgentDeps, str]:
                 "## Active travel goal (canonical current session state)\n"
                 + json.dumps(ctx.deps.travel_goal.model_dump(), ensure_ascii=False)
             )
+            parts.append(
+                "## Goal-driven execution\nFollow planning_steps when useful, choosing the available "
+                "graph and Neshan tools yourself. A subgoal is a checkable outcome, NOT "
+                "a preassigned tool call: choose an action, inspect its result, then "
+                "decide whether to call another tool or finish. For destination-linked "
+                "ontology IDs use tool_search_destinations_by_features and "
+                "tool_get_destination_features; for nuanced unlinked preferences use "
+                "semantic search as a candidate hint only, never proof. Do not fabricate "
+                "times, prices, opening hours or "
+                "completed visits. Review goal_coverage after each tool result: partial "
+                "means candidate evidence only; do not claim a goal satisfied until "
+                "the final route is verified. Explicit current constraints override older preferences. "
+                "Use the Neshan multi-destination order via tool_build_trip_map, not a manually "
+                "calculated visiting order. A goal is covered only if the final plan contains evidence. "
+                "Write a helpful Persian travel plan with a short greeting (on a first request), "
+                "a natural introduction, and useful place descriptions grounded in actual "
+                "Destination.description and graph details: what makes each selected stop "
+                "interesting, terrain and facilities only when evidenced, and practical "
+                "cautions when available. Do not merely list visit order and driving times. "
+                "Do not expose goal IDs, coverage statuses or internal evaluation to the user; "
+                "a separate retrospective explanation will connect verified destination "
+                "facts to relevant goals. Do not claim camping is allowed or facilities "
+                "exist from semantic similarity alone."
+            )
+            if ctx.deps.semantic_candidates is not None:
+                parts.append(
+                    "## Complementary semantic destination candidates (retrieved before this plan)\n"
+                    "Use these only as leads from embedded destination descriptions, "
+                    "not as proof of facilities, quietness or accessibility. Compare them "
+                    "with structured search, destination details, ontology edges and "
+                    "real routing; keep explicit constraints. An empty result does not "
+                    "prove that no suitable destination exists. You may call "
+                    "tool_semantic_search_destinations again with a more focused query.\n"
+                    + json.dumps([
+                        {**row, "description": str(row.get("description") or "")[:400]}
+                        for row in ctx.deps.semantic_candidates[:6]
+                    ], default=str, ensure_ascii=False)
+                )
         parts.append(f"## Current turn action: {ctx.deps.turn_action}. "
                      "For answer/chat, address the latest message directly; do not generate a fresh itinerary.")
 
@@ -653,7 +711,7 @@ def get_trip_planner_agent() -> Agent[AgentDeps, str]:
             max_travel_hours, max_physical_readiness, stay_duration, ecotourism,
             limit=limit,
         )
-        return json.dumps(result, default=str, ensure_ascii=False)
+        return await observed_result(ctx, "search_destinations", result)
 
     @agent.tool
     async def tool_semantic_search_destinations(
@@ -664,7 +722,29 @@ def get_trip_planner_agent() -> Agent[AgentDeps, str]:
         follow-up intent that exact category filters cannot express. Hard constraints
         still need verification through structured search and destination details."""
         result = await semantic_search_destinations(ctx, goal, limit)
-        return json.dumps(result, default=str, ensure_ascii=False)
+        return await observed_result(ctx, "semantic_search_destinations", result)
+
+    @agent.tool
+    async def tool_search_destinations_by_features(
+        ctx: RunContext[AgentDeps], feature_ids: list[str],
+        location: str | None = None, match_all: bool = True, limit: int = 10,
+    ) -> str:
+        """Find destinations linked to ontology feature IDs in the active goal.
+        Pass exact IDs from related_features / available_feature_nodes, never
+        names or invented IDs. match_all=True requires every feature; False
+        finds alternatives. Use for verified category, season, trip type,
+        vehicle, facilities LEVEL, travel-time/distance bucket, road type and
+        physical-readiness links. Vocabulary-only types (quiet Environment,
+        FoodPreference, TravelStyle, Activity, AccommodationType) have no
+        destination links: do NOT treat missing matches, semantic similarity
+        or a level like 'high facilities' as proof of quietness, a particular
+        toilet, accessibility, food, accommodation, or completed travel.
+        location is an optional region/city; the current goal region is used
+        when omitted. Inspect candidates and verify final itinerary separately.
+        """
+        result = await search_destinations_by_features(
+            ctx, feature_ids, location, match_all, limit)
+        return await observed_result(ctx, "search_destinations_by_features", result)
 
     @agent.tool
     async def tool_get_destination_details(ctx: RunContext[AgentDeps], name_or_id: str) -> str:
@@ -674,7 +754,21 @@ def get_trip_planner_agent() -> Agent[AgentDeps, str]:
         curated destination when duplicate map records exist. Returns description,
         cautions, vehicles, exit routes from Tehran, and nearby destinations."""
         result = await get_destination_details(ctx, name_or_id)
-        return json.dumps(result, default=str, ensure_ascii=False)
+        return await observed_result(ctx, "get_destination_details", result)
+
+    @agent.tool
+    async def tool_get_destination_features(
+        ctx: RunContext[AgentDeps], name_or_id: str,
+    ) -> str:
+        """Inspect actual graph feature edges for one resolved destination.
+        Use after finding candidates or for a named place when a goal depends
+        on its road type, vehicle, readiness, season, category or facilities
+        LEVEL. An absent edge means unknown, not false. This does not verify
+        toilets, quietness or detailed amenities; never infer these from an
+        unrelated feature or from a vocabulary node without an edge.
+        """
+        result = await get_destination_features(ctx, name_or_id)
+        return await observed_result(ctx, "get_destination_features", result)
 
     @agent.tool
     async def tool_find_destinations_near(
@@ -683,7 +777,7 @@ def get_trip_planner_agent() -> Agent[AgentDeps, str]:
         """Find other destinations close to a given one, to build a combined
         itinerary (e.g. a waterfall + a nearby historic village)."""
         result = await find_destinations_near(ctx, name_or_id, radius_km)
-        return json.dumps(result, default=str, ensure_ascii=False)
+        return await observed_result(ctx, "find_destinations_near", result)
 
     @agent.tool
     async def tool_build_trip_map(
@@ -728,7 +822,7 @@ def get_trip_planner_agent() -> Agent[AgentDeps, str]:
                 include it; when false, totals are one-way only.
         """
         result = await build_trip_map(ctx, stops, origin, round_trip)
-        return json.dumps(result, default=str, ensure_ascii=False)
+        return await observed_result(ctx, "build_trip_map", result)
 
     @agent.tool
     async def tool_check_reachable_within_time(
@@ -750,7 +844,7 @@ def get_trip_planner_agent() -> Agent[AgentDeps, str]:
             candidates: [{"name": ..., "id": .., "latitude": .., "longitude": ..}, ...]
         """
         result = await check_reachable_within_time(ctx, origin, minutes, candidates)
-        return json.dumps(result, default=str, ensure_ascii=False)
+        return await observed_result(ctx, "check_reachable_within_time", result)
 
     @agent.tool
     async def tool_find_nearby_amenities(
@@ -767,14 +861,14 @@ def get_trip_planner_agent() -> Agent[AgentDeps, str]:
         single English slug per call; call it more than once for more than
         one kind of nearby point."""
         result = await find_nearby_amenities(ctx, latitude, longitude, layer, radius_m)
-        return json.dumps(result, default=str, ensure_ascii=False)
+        return await observed_result(ctx, "find_nearby_amenities", result)
 
     @agent.tool
     async def tool_list_available_filters(ctx: RunContext[AgentDeps]) -> str:
         """List the actual category/season/trip-type values present in the
         graph, so you filter using real vocabulary instead of guessing."""
         result = await list_available_filters(ctx)
-        return json.dumps(result, default=str, ensure_ascii=False)
+        return await observed_result(ctx, "list_available_filters", result)
 
     @agent.tool
     async def tool_save_user_preference(ctx: RunContext[AgentDeps], category: str, preference: str) -> str:
